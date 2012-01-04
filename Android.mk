@@ -1,5 +1,5 @@
 # Copyright 2011 The Android Open Source Project
-ifeq ($(strip $(BOARD_USES_ALSA_AUDIO)),false)
+ifneq ($(strip $(BOARD_USES_ALSA_AUDIO)),true)
 #AUDIO_POLICY_TEST := true
 #ENABLE_AUDIO_DUMP := true
 
