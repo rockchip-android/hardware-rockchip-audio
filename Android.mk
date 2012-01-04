@@ -72,6 +72,7 @@ ifeq ($(BOARD_HAVE_BLUETOOTH),true)
 endif
 
 include $(BUILD_SHARED_LIBRARY)
+endif
 
 #ifeq ($(ENABLE_AUDIO_DUMP),true)
 #  LOCAL_SRC_FILES += AudioDumpInterface.cpp
@@ -96,4 +97,3 @@ include $(BUILD_SHARED_LIBRARY)
 
 #    AudioHardwareGeneric.cpp \
 #    AudioHardwareStub.cpp \
-endif
