@@ -17,7 +17,7 @@ ifeq ($(BOARD_HAVE_BLUETOOTH),true)
   LOCAL_CFLAGS += -DWITH_A2DP
 endif
 
-LOCAL_MODULE := audio.primary.rk30board
+LOCAL_MODULE := audio.primary.$(TARGET_BOARD_HARDWARE)
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_MODULE_TAGS := optional
 LOCAL_STATIC_LIBRARIES := libmedia_helper
@@ -40,7 +40,7 @@ ifeq ($(BOARD_HAVE_BLUETOOTH),true)
 endif
 
 LOCAL_STATIC_LIBRARIES := libmedia_helper
-LOCAL_MODULE := libaudiopolicy_rk30board
+LOCAL_MODULE := libaudiopolicy_$(TARGET_BOARD_HARDWARE)
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_STATIC_LIBRARY)
@@ -61,9 +61,9 @@ LOCAL_STATIC_LIBRARIES := \
     libmedia_helper
 
 LOCAL_WHOLE_STATIC_LIBRARIES := \
-    libaudiopolicy_rk30board
+    libaudiopolicy_$(TARGET_BOARD_HARDWARE)
 
-LOCAL_MODULE := audio_policy.rk30board
+LOCAL_MODULE := audio_policy.$(TARGET_BOARD_HARDWARE)
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_MODULE_TAGS := optional
 
