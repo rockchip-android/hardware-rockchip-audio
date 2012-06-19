@@ -335,7 +335,7 @@ struct pcm *pcm_open(unsigned flags)
     period_sz = 128 * (((flags & PCM_PERIOD_SZ_MASK) >> PCM_PERIOD_SZ_SHIFT) + 1);
     LOGV("pcm_open() period cnt %d",
          ((flags & PCM_PERIOD_CNT_MASK) >> PCM_PERIOD_CNT_SHIFT) + PCM_PERIOD_CNT_MIN);
-    period_cnt = ((flags & PCM_PERIOD_CNT_MASK) >> PCM_PERIOD_CNT_SHIFT) + PCM_PERIOD_CNT_MIN;
+    period_cnt = 4;//((flags & PCM_PERIOD_CNT_MASK) >> PCM_PERIOD_CNT_SHIFT) + PCM_PERIOD_CNT_MIN;
 
     pcm->flags = flags;
     pcm->fd = open(dname, O_RDWR);
@@ -360,8 +360,7 @@ struct pcm *pcm_open(unsigned flags)
                    SNDRV_PCM_FORMAT_S16_LE);
     param_set_mask(&params, SNDRV_PCM_HW_PARAM_SUBFORMAT,
                    SNDRV_PCM_SUBFORMAT_STD);
-	if(!(flags & PCM_IN))
-	{		
+	
     param_set_min(&params, SNDRV_PCM_HW_PARAM_PERIOD_SIZE, period_sz);
     param_set_int(&params, SNDRV_PCM_HW_PARAM_SAMPLE_BITS, 16);
     param_set_int(&params, SNDRV_PCM_HW_PARAM_FRAME_BITS,
@@ -370,7 +369,7 @@ struct pcm *pcm_open(unsigned flags)
                   (flags & PCM_MONO) ? 1 : 2);
     param_set_int(&params, SNDRV_PCM_HW_PARAM_PERIODS, period_cnt);
     param_set_int(&params, SNDRV_PCM_HW_PARAM_RATE, 44100);
-	}
+	
 
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_HW_PARAMS, &params)) {
         oops(pcm, errno, "cannot set hw params");
