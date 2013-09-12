@@ -27,6 +27,11 @@
 
 #include "secril-client.h"
 
+#include "speex/speex.h"
+#include "speex/speex_preprocess.h"
+#include "speex/speex_resampler.h"
+
+
 extern "C" {
     struct pcm;
     struct mixer;
@@ -67,6 +72,17 @@ namespace android_audio_legacy {
 #define AUDIO_HW_IN_PERIOD_BYTES ((AUDIO_HW_IN_PERIOD_SZ*sizeof(int16_t))/8)
 
 #define INPUT_SOURCE_KEY "Input Source"
+
+
+//1:Enable the AGC funtion ;0: disable the AGC function
+#define SPEEX_AGC_ENABLE 0
+
+//1:Enable the denoise funtion ;0: disable the denoise function
+
+#define SPEEX_DENOISE_ENABLE 1
+
+#define RESAMPLER_QUALITY SPEEX_RESAMPLER_QUALITY_DEFAULT
+
 
 class AudioHardware : public AudioHardwareBase
 {
@@ -277,6 +293,7 @@ private:
         int mInTmp2Buf;
         int mOutBufPos;
         int mInOutBuf;
+		SpeexResamplerState *mInResampler;   // handle on input speex resampler
     };
 
 
@@ -342,6 +359,12 @@ private:
         //  trace driver operations for dump
         int mDriverOp;
         int mStandbyCnt;
+		uint32_t mDropCnt;
+#if (SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE)
+        SpeexPreprocessState* mSpeexState;
+        int mSpeexFrameSize;
+		int16_t *mSpeexPcmIn;
+#endif//SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE
     };
 
 };

@@ -20,8 +20,11 @@ endif
 LOCAL_MODULE := audio.primary.$(TARGET_BOARD_HARDWARE)
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_MODULE_TAGS := optional
-LOCAL_STATIC_LIBRARIES := libmedia_helper
-LOCAL_SHARED_LIBRARIES:= libc libcutils libutils libmedia libhardware_legacy
+LOCAL_STATIC_LIBRARIES := libmedia_helper \
+	libspeex
+LOCAL_C_INCLUDES := \
+    $(call include-path-for, speex)
+LOCAL_SHARED_LIBRARIES:= libc libcutils libutils libmedia libhardware_legacy libspeexresampler
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)

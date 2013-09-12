@@ -1286,6 +1286,32 @@ status_t AudioHardware::AudioStreamInALSA::set(
 
         mPcmIn = new int16_t[AUDIO_HW_IN_PERIOD_SZ * mChannelCount];
     }
+#if (SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE)
+    mSpeexFrameSize = mBufferSize/((mChannelCount*sizeof(int16_t))*2);//
+    mSpeexPcmIn = new int16_t[mSpeexFrameSize];
+    mSpeexState = speex_preprocess_state_init(mSpeexFrameSize, mSampleRate);
+	if(mSpeexState == NULL)
+		return BAD_VALUE;
+#if SPEEX_AGC_ENABLE
+	int agc = 1;   
+    float  q= 27000; //取值范围可以自己改不要超过30000；  
+    //actually default is 8000(0,32768),here make it louder for voice is not loudy enough by default. 8000   
+    speex_preprocess_ctl(mSpeexState, SPEEX_PREPROCESS_SET_AGC, &agc);//增益   
+    speex_preprocess_ctl(mSpeexState, SPEEX_PREPROCESS_SET_AGC_LEVEL,&q);
+#endif//SPEEX_AGC_ENABLE
+
+#if SPEEX_DENOISE_ENABLE
+    int denoise = 1;
+#if SPEEX_AGC_ENABLE
+    int noiseSuppress = -32;//DB值可以自己改， 根据具体产品修改出适合的值，-25~-45
+#else
+	  int noiseSuppress = -24;
+#endif    
+    speex_preprocess_ctl(mSpeexState, SPEEX_PREPROCESS_SET_DENOISE, &denoise);
+    speex_preprocess_ctl(mSpeexState, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noiseSuppress);
+#endif//SPEEX_DENOISE_ENABLE
+
+#endif//SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE
     return NO_ERROR;
 }
 
@@ -1298,6 +1324,12 @@ AudioHardware::AudioStreamInALSA::~AudioStreamInALSA()
             delete[] mPcmIn;
         }
     }
+#if (SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE)
+	if(mSpeexState)
+    	speex_preprocess_state_destroy(mSpeexState);
+	if(mSpeexPcmIn)
+		delete[] mSpeexPcmIn;
+#endif //SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE
 }
 
 ssize_t AudioHardware::AudioStreamInALSA::read(void* buffer, ssize_t bytes)
@@ -1381,6 +1413,48 @@ ssize_t AudioHardware::AudioStreamInALSA::read(void* buffer, ssize_t bytes)
         }
 
         if (ret == 0) {
+#if (SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE)
+//			if(!mMicMute)
+			{
+                int index = 0;
+				int startPos = 0;
+                spx_int16_t* data = (spx_int16_t*) buffer;
+
+				int curFrameSize = bytes/(mChannelCount*sizeof(int16_t));
+				
+				if(curFrameSize != 2*mSpeexFrameSize)
+					LOGE("the current request have some error mSpeexFrameSize %d bytes %d ",mSpeexFrameSize,bytes);
+				
+				while(curFrameSize >= startPos+mSpeexFrameSize)
+				{
+					//ALOGI("--->mSpeexFrameSize %d bytes %d startPos %d",mSpeexFrameSize,bytes,startPos);
+										
+					for(index = startPos; index< startPos + mSpeexFrameSize ;index++ )
+						mSpeexPcmIn[index-startPos] = data[index*mChannelCount]/2 + data[index*mChannelCount+1]/2;
+					
+	         		speex_preprocess_run(mSpeexState,mSpeexPcmIn);
+#ifndef TARGET_RK2928				
+					for(int ch = 0 ; ch < mChannelCount;ch++)						
+						for(index = startPos; index< startPos + mSpeexFrameSize ;index++ )
+						{
+							data[index*mChannelCount+ch] = mSpeexPcmIn[index-startPos];
+						}
+#else
+					for(index = startPos; index< startPos + mSpeexFrameSize ;index++ )
+					{
+						int tmp = (int)mSpeexPcmIn[index-startPos]+ mSpeexPcmIn[index-startPos]/2;
+						data[index*mChannelCount+0] = tmp > 32767 ? 32767 : (tmp < -32768 ? -32768 : tmp);
+					}
+					for(int ch = 1 ; ch < mChannelCount;ch++)						
+						for(index = startPos; index< startPos + mSpeexFrameSize ;index++ )
+						{
+							data[index*mChannelCount+ch] = data[index*mChannelCount+0];
+						}
+#endif
+					startPos += mSpeexFrameSize;
+				}
+            }
+#endif//(SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE)		
             return bytes;
         }
 
