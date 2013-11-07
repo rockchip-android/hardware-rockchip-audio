@@ -30,16 +30,23 @@
 
 namespace android_audio_legacy {
 
-audio_io_handle_t AudioPolicyCompatClient::openOutput(uint32_t *pDevices,
-                                uint32_t *pSamplingRate,
-                                uint32_t *pFormat,
-                                uint32_t *pChannels,
-                                uint32_t *pLatencyMs,
-                                AudioSystem::output_flags flags)
+audio_module_handle_t AudioPolicyCompatClient::loadHwModule(const char *moduleName)
 {
-    return mServiceOps->open_output(mService, pDevices, pSamplingRate, pFormat,
-                                    pChannels, pLatencyMs,
-                                    (audio_policy_output_flags_t)flags);
+    return mServiceOps->load_hw_module(mService, moduleName);
+}
+
+audio_io_handle_t AudioPolicyCompatClient::openOutput(audio_module_handle_t module,
+                                                      audio_devices_t *pDevices,
+                                                      uint32_t *pSamplingRate,
+                                                      audio_format_t *pFormat,
+                                                      audio_channel_mask_t *pChannelMask,
+                                                      uint32_t *pLatencyMs,
+                                                      audio_output_flags_t flags,
+                                                      const audio_offload_info_t *offloadInfo)
+{
+    return mServiceOps->open_output_on_module(mService, module, pDevices, pSamplingRate,
+                                              pFormat, pChannelMask, pLatencyMs,
+                                              flags, offloadInfo);
 }
 
 audio_io_handle_t AudioPolicyCompatClient::openDuplicateOutput(audio_io_handle_t output1,
@@ -63,14 +70,14 @@ status_t AudioPolicyCompatClient::restoreOutput(audio_io_handle_t output)
     return mServiceOps->restore_output(mService, output);
 }
 
-audio_io_handle_t AudioPolicyCompatClient::openInput(uint32_t *pDevices,
-                                uint32_t *pSamplingRate,
-                                uint32_t *pFormat,
-                                uint32_t *pChannels,
-                                uint32_t acoustics)
+audio_io_handle_t AudioPolicyCompatClient::openInput(audio_module_handle_t module,
+                                                     audio_devices_t *pDevices,
+                                                     uint32_t *pSamplingRate,
+                                                     audio_format_t *pFormat,
+                                                     audio_channel_mask_t *pChannelMask)
 {
-    return mServiceOps->open_input(mService, pDevices, pSamplingRate, pFormat,
-                                   pChannels, acoustics);
+    return mServiceOps->open_input_on_module(mService, module, pDevices,
+                                             pSamplingRate, pFormat, pChannelMask);
 }
 
 status_t AudioPolicyCompatClient::closeInput(audio_io_handle_t input)

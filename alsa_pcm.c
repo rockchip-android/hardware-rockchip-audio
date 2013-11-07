@@ -43,7 +43,8 @@
 #define DEBUG 0
 
 /* alsa parameter manipulation cruft */
-
+#undef ALOGV
+#define ALOGV ALOGD
 #define PARAM_MAX SNDRV_PCM_HW_PARAM_LAST_INTERVAL
 
 static inline int param_is_mask(int p)
@@ -153,35 +154,35 @@ static void param_dump(struct snd_pcm_hw_params *p)
     for (n = SNDRV_PCM_HW_PARAM_FIRST_MASK;
          n <= SNDRV_PCM_HW_PARAM_LAST_MASK; n++) {
             struct snd_mask *m = param_to_mask(p, n);
-            LOGV("%s = %08x%08x\n", param_name[n],
+            ALOGV("%s = %08x%08x\n", param_name[n],
                    m->bits[1], m->bits[0]);
     }
     for (n = SNDRV_PCM_HW_PARAM_FIRST_INTERVAL;
          n <= SNDRV_PCM_HW_PARAM_LAST_INTERVAL; n++) {
             struct snd_interval *i = param_to_interval(p, n);
-            LOGV("%s = (%d,%d) omin=%d omax=%d int=%d empty=%d\n",
+            ALOGV("%s = (%d,%d) omin=%d omax=%d int=%d empty=%d\n",
                    param_name[n], i->min, i->max, i->openmin,
                    i->openmax, i->integer, i->empty);
     }
-    LOGV("info = %08x\n", p->info);
-    LOGV("msbits = %d\n", p->msbits);
-    LOGV("rate = %d/%d\n", p->rate_num, p->rate_den);
-    LOGV("fifo = %d\n", (int) p->fifo_size);
+    ALOGV("info = %08x\n", p->info);
+    ALOGV("msbits = %d\n", p->msbits);
+    ALOGV("rate = %d/%d\n", p->rate_num, p->rate_den);
+    ALOGV("fifo = %d\n", (int) p->fifo_size);
 }
 
 static void info_dump(struct snd_pcm_info *info)
 {
-    LOGV("device = %d\n", info->device);
-    LOGV("subdevice = %d\n", info->subdevice);
-    LOGV("stream = %d\n", info->stream);
-    LOGV("card = %d\n", info->card);
-    LOGV("id = '%s'\n", info->id);
-    LOGV("name = '%s'\n", info->name);
-    LOGV("subname = '%s'\n", info->subname);
-    LOGV("dev_class = %d\n", info->dev_class);
-    LOGV("dev_subclass = %d\n", info->dev_subclass);
-    LOGV("subdevices_count = %d\n", info->subdevices_count);
-    LOGV("subdevices_avail = %d\n", info->subdevices_avail);
+    ALOGV("device = %d\n", info->device);
+    ALOGV("subdevice = %d\n", info->subdevice);
+    ALOGV("stream = %d\n", info->stream);
+    ALOGV("card = %d\n", info->card);
+    ALOGV("id = '%s'\n", info->id);
+    ALOGV("name = '%s'\n", info->name);
+    ALOGV("subname = '%s'\n", info->subname);
+    ALOGV("dev_class = %d\n", info->dev_class);
+    ALOGV("dev_subclass = %d\n", info->dev_subclass);
+    ALOGV("subdevices_count = %d\n", info->subdevices_count);
+    ALOGV("subdevices_avail = %d\n", info->subdevices_avail);
 }
 #else
 static void param_dump(struct snd_pcm_hw_params *p) {}
@@ -258,6 +259,94 @@ int pcm_write(struct pcm *pcm, void *data, unsigned count)
     }
 }
 
+/********************************
+	author:charles chen
+	data:2012.09.27
+	parameter 
+	data: the input data buf point
+	len:   the input data len need consider the pcm_format
+	ret: 0:Left and right channel is valid
+		  1:Left      channel is valid
+		  2:Right    channel is valid
+
+defalt the input signal is like LRLRLR,default pcm_format is 16bit
+*********************************/
+#define SAMPLECOUNT 441*5*2*2
+int channalFlags = -1;//mean the channel is not checked now
+
+int startCheckCount = 0;
+
+int channel_check(void * data,int len )
+{
+	short * pcmLeftChannel = (short *)data;
+	short * pcmRightChannel = pcmLeftChannel+1;
+	unsigned index = 0;
+	int leftValid = 0x0;
+	int rightValid = 0x0;
+	short checkValue = 0;
+	
+	checkValue = *pcmLeftChannel;
+
+	//checkleft first
+	for(index = 0; index < len; index += 2)
+	{
+		
+		if((pcmLeftChannel[index] >= checkValue+50)||(pcmLeftChannel[index] <= checkValue-50))
+		{
+			leftValid++;// = 0x01;
+		        //ALOGI("-->pcmLeftChannel[%d] = %d checkValue %d leftValid %d",index,pcmLeftChannel[index],checkValue,leftValid);
+			//break;
+		}	
+	}
+
+	if(leftValid >20)
+		leftValid = 0x01;
+	else
+		leftValid = 0;
+	checkValue = *pcmRightChannel;
+
+		//then check right 
+	for(index = 0; index < len; index += 2)
+	{
+		
+		if((pcmRightChannel[index] >= checkValue+50)||(pcmRightChannel[index] <= checkValue-50))
+		{
+			rightValid++;//= 0x02;
+			//ALOGI("-->pcmRightChannel[%d] = %d checkValue %d rightValid %d",index,pcmRightChannel[index],checkValue,rightValid);
+			//break;
+		}	
+	}
+
+	if(rightValid >20)
+		rightValid = 0x02;
+	else
+		rightValid = 0;
+	ALOGI("leftValid %d rightValid %d",leftValid,rightValid);
+	return leftValid|rightValid;
+}
+
+void channel_fixed(void * data,int len, int chFlag)
+{
+	//we just fixed when chFlag is 1 or 2.
+	if(chFlag <= 0 || chFlag > 2 )
+		return;
+
+	short * pcmValid = (short *)data;
+	short * pcmInvalid = pcmValid;
+	
+	if(chFlag == 1)
+		pcmInvalid += 1;
+	else if (chFlag == 2)
+		pcmValid += 1;
+	
+	unsigned index ;
+	
+	for(index = 0; index < len; index += 2)
+	{
+		pcmInvalid[index] = pcmValid[index];
+	}
+	return;
+}
 int pcm_read(struct pcm *pcm, void *data, unsigned count)
 {
     struct snd_xferi x;
@@ -268,7 +357,7 @@ int pcm_read(struct pcm *pcm, void *data, unsigned count)
     x.buf = data;
     x.frames = (pcm->flags & PCM_MONO) ? (count / 2) : (count / 4);
 
-//    LOGV("read() %d frames", x.frames);
+//    ALOGV("read() %d frames", x.frames);
     for (;;) {
         if (!pcm->running) {
             if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_PREPARE))
@@ -286,10 +375,29 @@ int pcm_read(struct pcm *pcm, void *data, unsigned count)
             }
             return oops(pcm, errno, "cannot read stream data");
         }
-//        LOGV("read() got %d frames", x.frames);
+//        ALOGV("read() got %d frames", x.frames);
+		if(!(pcm->flags & PCM_MONO))
+		{
+				//LOGI("read() get %d", x.frames);
+			if(channalFlags == -1 )	
+			{
+				if(startCheckCount < SAMPLECOUNT)
+				{
+					startCheckCount += count;
+				}
+				else
+				{
+					channalFlags = channel_check(data,count/2);
+				}
+			}//if(channalFlags == -1)
+
+			channel_fixed(data,count/2, channalFlags);
+		}
         return 0;
     }
 }
+
+
 
 static struct pcm bad_pcm = {
     .fd = -1,
@@ -318,29 +426,47 @@ struct pcm *pcm_open(unsigned flags)
     unsigned period_sz;
     unsigned period_cnt;
 
-    LOGV("pcm_open(0x%08x)",flags);
+    ALOGV("pcm_open(0x%08x)",flags);
 
     pcm = calloc(1, sizeof(struct pcm));
     if (!pcm)
         return &bad_pcm;
 
+__open_again:
+
     if (flags & PCM_IN) {
         dname = "/dev/snd/pcmC0D0c";
+		channalFlags = -1;
+		startCheckCount = 0;
     } else {
-        dname = "/dev/snd/pcmC0D0p";
+#ifdef SUPPORT_USB
+        dname = "/dev/snd/pcmC1D0p";
+#else
+        if (flags & PCM_CARD1)
+            dname = "/dev/snd/pcmC1D0p";
+        else
+            dname = "/dev/snd/pcmC0D0p";
+#endif
     }
 
-    LOGV("pcm_open() period sz multiplier %d",
+    ALOGV("pcm_open() period sz multiplier %d",
          ((flags & PCM_PERIOD_SZ_MASK) >> PCM_PERIOD_SZ_SHIFT) + 1);
-    period_sz = 128 * (((flags & PCM_PERIOD_SZ_MASK) >> PCM_PERIOD_SZ_SHIFT) + 1);
-    LOGV("pcm_open() period cnt %d",
+    period_sz = PCM_PERIOD_SZ_MIN * (((flags & PCM_PERIOD_SZ_MASK) >> PCM_PERIOD_SZ_SHIFT) + 1);
+    ALOGV("pcm_open() period cnt %d",
          ((flags & PCM_PERIOD_CNT_MASK) >> PCM_PERIOD_CNT_SHIFT) + PCM_PERIOD_CNT_MIN);
-    period_cnt = 4;//((flags & PCM_PERIOD_CNT_MASK) >> PCM_PERIOD_CNT_SHIFT) + PCM_PERIOD_CNT_MIN;
+    period_cnt = ((flags & PCM_PERIOD_CNT_MASK) >> PCM_PERIOD_CNT_SHIFT) + PCM_PERIOD_CNT_MIN;
 
     pcm->flags = flags;
     pcm->fd = open(dname, O_RDWR);
     if (pcm->fd < 0) {
         oops(pcm, errno, "cannot open device '%s'", dname);
+#ifndef SUPPORT_USB
+        if (flags & PCM_CARD1) {
+            ALOGV("Open sound card1 for HDMI error, open sound card0");
+            flags &= ~PCM_CARD1;
+            goto __open_again;
+        }
+#endif
         return pcm;
     }
 
@@ -350,7 +476,7 @@ struct pcm *pcm_open(unsigned flags)
     }
     info_dump(&info);
 
-    LOGV("pcm_open() period_cnt %d period_sz %d channels %d",
+    ALOGV("pcm_open() period_cnt %d period_sz %d channels %d",
          period_cnt, period_sz, (flags & PCM_MONO) ? 1 : 2);
 
     param_init(&params);
@@ -368,8 +494,11 @@ struct pcm *pcm_open(unsigned flags)
     param_set_int(&params, SNDRV_PCM_HW_PARAM_CHANNELS,
                   (flags & PCM_MONO) ? 1 : 2);
     param_set_int(&params, SNDRV_PCM_HW_PARAM_PERIODS, period_cnt);
-    param_set_int(&params, SNDRV_PCM_HW_PARAM_RATE, 44100);
-	
+    if (flags & PCM_8000HZ) {
+        ALOGD("set audio capture 8KHz");
+        param_set_int(&params, SNDRV_PCM_HW_PARAM_RATE, 8000);
+    } else
+        param_set_int(&params, SNDRV_PCM_HW_PARAM_RATE, 44100);
 
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_HW_PARAMS, &params)) {
         oops(pcm, errno, "cannot set hw params");

@@ -27,9 +27,14 @@
 #define __bitwise
 #define __user
 #include "asound.h"
+#define LOG_TAG "alsa_mix"
 
 #include "alsa_audio.h"
+#include <cutils/log.h>
 
+#define MAX_SOUND_CARDS     10
+#define VOLUME_PERCENTS     90
+#define SOUND_CTL_PREFIX    "/dev/snd/controlC"
 static const char *elem_iface_name(snd_ctl_elem_iface_t n)
 {
     switch (n) {
@@ -106,7 +111,12 @@ struct mixer *mixer_open(void)
     unsigned n, m;
     int fd;
 
-    fd = open("/dev/snd/controlC0", O_RDWR);
+#ifdef SUPPORT_USB	
+    fd = open("/dev/snd/controlC1", O_RDWR);
+#else
+	fd = open("/dev/snd/controlC0", O_RDWR);
+#endif
+	
     if (fd < 0)
         return 0;
 
@@ -230,6 +240,7 @@ struct mixer_ctl *mixer_get_control(struct mixer *mixer,
     for (n = 0; n < mixer->count; n++) {
         if (mixer->info[n].id.index == index) {
             if (!strcmp(name, (char*) mixer->info[n].id.name)) {
+				ALOGI("-->%s access %d",mixer->info[n].id.name,mixer->info[n].access);
                 return mixer->ctl + n;
             }
         }
@@ -369,3 +380,114 @@ int mixer_ctl_select(struct mixer_ctl *ctl, const char *value)
     errno = EINVAL;
     return -1;
 }
+
+#ifdef SUPPORT_USB	
+
+struct mixer *mixer_open1(char *devPath)
+{
+    struct snd_ctl_elem_list elist;
+    struct snd_ctl_elem_info tmp;
+    struct snd_ctl_elem_id *eid = NULL;
+    struct mixer *mixer = NULL;
+    unsigned n, m;
+    int fd;
+    if(NULL == devPath)
+        return 0;
+    fd = open(devPath, O_RDWR);
+    if (fd < 0)
+        return 0;
+
+    memset(&elist, 0, sizeof(elist));
+    if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_LIST, &elist) < 0)
+        goto fail;
+
+    mixer = calloc(1, sizeof(*mixer));
+    if (!mixer)
+        goto fail;
+
+    mixer->ctl = calloc(elist.count, sizeof(struct mixer_ctl));
+    mixer->info = calloc(elist.count, sizeof(struct snd_ctl_elem_info));
+    if (!mixer->ctl || !mixer->info)
+        goto fail;
+
+    eid = calloc(elist.count, sizeof(struct snd_ctl_elem_id));
+    if (!eid)
+        goto fail;
+
+    mixer->count = elist.count;
+    mixer->fd = fd;
+    elist.space = mixer->count;
+    elist.pids = eid;
+    if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_LIST, &elist) < 0)
+        goto fail;
+
+    for (n = 0; n < mixer->count; n++) {
+        struct snd_ctl_elem_info *ei = mixer->info + n;
+        ei->id.numid = eid[n].numid;
+        if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_INFO, ei) < 0)
+            goto fail;
+        mixer->ctl[n].info = ei;
+        mixer->ctl[n].mixer = mixer;
+        if (ei->type == SNDRV_CTL_ELEM_TYPE_ENUMERATED) {
+            char **enames = calloc(ei->value.enumerated.items, sizeof(char*));
+            if (!enames)
+                goto fail;
+            mixer->ctl[n].ename = enames;
+            for (m = 0; m < ei->value.enumerated.items; m++) {
+                memset(&tmp, 0, sizeof(tmp));
+                tmp.id.numid = ei->id.numid;
+                tmp.value.enumerated.item = m;
+                if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_INFO, &tmp) < 0)
+                    goto fail;
+                enames[m] = strdup(tmp.value.enumerated.name);
+                if (!enames[m])
+                    goto fail;
+            }
+        }
+    }
+
+    free(eid);
+    return mixer;
+
+fail:
+    if (eid)
+        free(eid);
+    if (mixer)
+        mixer_close(mixer);
+    else if (fd >= 0)
+        close(fd);
+    return 0;
+}
+
+
+void mixer_enableDevicesVolume(void){
+    int i=0;
+    char devpath[30];
+    struct mixer *mxr=NULL;
+    struct mixer_ctl *mctl=NULL;
+    for(i=1; i<2; ++i){
+        snprintf(devpath, 30, "%s%d", SOUND_CTL_PREFIX, i);
+        ALOGV("%s:%s\n", __FUNCTION__, devpath);
+        if(access(devpath, 0) == -1)
+            continue;
+        mxr = mixer_open1(devpath);
+        if(NULL != mxr){
+            ALOGV("%s: open playback switch\n", __FUNCTION__);
+            mctl = mixer_get_control(mxr, "PCM Playback Switch", 0);
+			if(mctl == NULL)
+				mctl = mixer_get_control(mxr, "Speaker Playback Switch", 0);
+            if(NULL != mctl){
+                mixer_ctl_set(mctl, 1);
+            }
+
+			 mctl = mixer_get_control(mxr, "PCM Playback Volume", 0);
+			if(mctl == NULL)
+				mctl = mixer_get_control(mxr, "Speaker Playback Volume", 0);
+            if(NULL != mctl){
+                mixer_ctl_set(mctl, 100);
+            }
+            mixer_close(mxr);
+        }
+    }
+}
+#endif//SUPPORT_USB

@@ -30,10 +30,13 @@ struct pcm;
 #define PCM_8000HZ     0x00200000
 #define PCM_RATE_MASK  0x00F00000
 
-#define PCM_PERIOD_CNT_MIN 2
+#define PCM_CARD0      0x00000000
+#define PCM_CARD1      0x00000001
+
+#define PCM_PERIOD_CNT_MIN 3
 #define PCM_PERIOD_CNT_SHIFT 16
 #define PCM_PERIOD_CNT_MASK (0xF << PCM_PERIOD_CNT_SHIFT)
-#define PCM_PERIOD_SZ_MIN 128
+#define PCM_PERIOD_SZ_MIN 64
 #define PCM_PERIOD_SZ_SHIFT 12
 #define PCM_PERIOD_SZ_MASK (0xF << PCM_PERIOD_SZ_SHIFT)
 
@@ -63,6 +66,10 @@ struct mixer;
 struct mixer_ctl;
 
 struct mixer *mixer_open(void);
+#ifdef SUPPORT_USB 
+struct mixer *mixer_open1(char *devPath);
+#endif
+
 void mixer_close(struct mixer *mixer);
 void mixer_dump(struct mixer *mixer);
 
@@ -73,5 +80,7 @@ struct mixer_ctl *mixer_get_nth_control(struct mixer *mixer, unsigned n);
 int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent);
 int mixer_ctl_select(struct mixer_ctl *ctl, const char *value);
 void mixer_ctl_print(struct mixer_ctl *ctl);
-
+#ifdef SUPPORT_USB 
+void mixer_enableDevicesVolume(void);
+#endif
 #endif

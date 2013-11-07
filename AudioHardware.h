@@ -27,11 +27,8 @@
 
 #include "secril-client.h"
 
-#include "speex/speex.h"
-#include "speex/speex_preprocess.h"
-#include "speex/speex_resampler.h"
-
-
+#include <speex/speex.h>
+#include <speex/speex_preprocess.h>
 extern "C" {
     struct pcm;
     struct mixer;
@@ -50,24 +47,24 @@ namespace android_audio_legacy {
 // Default audio output sample format
 #define AUDIO_HW_OUT_FORMAT (AudioSystem::PCM_16_BIT)
 // Kernel pcm out buffer size in frames at 44.1kHz
-#define AUDIO_HW_OUT_PERIOD_MULT 8 // (8 * 128 = 1024 frames)
+#define AUDIO_HW_OUT_PERIOD_MULT 16 // (16 * 64 = 1024 frames)
 #define AUDIO_HW_OUT_PERIOD_SZ (PCM_PERIOD_SZ_MIN * AUDIO_HW_OUT_PERIOD_MULT)
-#define AUDIO_HW_OUT_PERIOD_CNT 4
+#define AUDIO_HW_OUT_PERIOD_CNT 6
 // Default audio output buffer size in bytes
 #define AUDIO_HW_OUT_PERIOD_BYTES (AUDIO_HW_OUT_PERIOD_SZ * 2 * sizeof(int16_t))
 
 // Default audio input sample rate
-#define AUDIO_HW_IN_SAMPLERATE 8000
+#define AUDIO_HW_IN_SAMPLERATE 44100
 // Default audio input channel mask
 #define AUDIO_HW_IN_CHANNELS (AudioSystem::CHANNEL_IN_MONO)
 // Default audio input sample format
 #define AUDIO_HW_IN_FORMAT (AudioSystem::PCM_16_BIT)
 // Number of buffers in audio driver for input
-#define AUDIO_HW_NUM_IN_BUF 2
+#define AUDIO_HW_NUM_IN_BUF 4
 // Kernel pcm in buffer size in frames at 44.1kHz (before resampling)
-#define AUDIO_HW_IN_PERIOD_MULT 16  // (16 * 128 = 2048 frames)
+#define AUDIO_HW_IN_PERIOD_MULT 16  // (8* 64 = 512 frames)
 #define AUDIO_HW_IN_PERIOD_SZ (PCM_PERIOD_SZ_MIN * AUDIO_HW_IN_PERIOD_MULT)
-#define AUDIO_HW_IN_PERIOD_CNT 2
+#define AUDIO_HW_IN_PERIOD_CNT 6
 // Default audio input buffer size in bytes (8kHz mono)
 #define AUDIO_HW_IN_PERIOD_BYTES ((AUDIO_HW_IN_PERIOD_SZ*sizeof(int16_t))/8)
 
@@ -80,8 +77,6 @@ namespace android_audio_legacy {
 //1:Enable the denoise funtion ;0: disable the denoise function
 
 #define SPEEX_DENOISE_ENABLE 1
-
-#define RESAMPLER_QUALITY SPEEX_RESAMPLER_QUALITY_DEFAULT
 
 
 class AudioHardware : public AudioHardwareBase
@@ -293,7 +288,6 @@ private:
         int mInTmp2Buf;
         int mOutBufPos;
         int mInOutBuf;
-		SpeexResamplerState *mInResampler;   // handle on input speex resampler
     };
 
 
@@ -313,7 +307,7 @@ private:
         virtual uint32_t channels() const { return mChannels; }
         virtual int format() const { return AUDIO_HW_IN_FORMAT; }
         virtual uint32_t sampleRate() const { return mSampleRate; }
-        virtual status_t setGain(float gain) { return INVALID_OPERATION; }
+        virtual status_t setGain(float gain);// { return INVALID_OPERATION; }
         virtual ssize_t read(void* buffer, ssize_t bytes);
         virtual status_t dump(int fd, const Vector<String16>& args);
         virtual status_t standby();
@@ -351,11 +345,14 @@ private:
         uint32_t mChannels;
         uint32_t mChannelCount;
         uint32_t mSampleRate;
+        uint32_t mReqSampleRate;
+        uint32_t mInSampleRate;
         size_t mBufferSize;
         DownSampler *mDownSampler;
         status_t mReadStatus;
         size_t mInPcmInBuf;
         int16_t *mPcmIn;
+		bool mMicMute;
         //  trace driver operations for dump
         int mDriverOp;
         int mStandbyCnt;

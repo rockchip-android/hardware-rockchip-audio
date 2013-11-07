@@ -17,14 +17,48 @@ ifeq ($(BOARD_HAVE_BLUETOOTH),true)
   LOCAL_CFLAGS += -DWITH_A2DP
 endif
 
+ifeq ($(strip $(TARGET_BOARD_HARDWARE)), rk2928board)
+  LOCAL_CFLAGS += -DTARGET_RK2928
+endif
+
 LOCAL_MODULE := audio.primary.$(TARGET_BOARD_HARDWARE)
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_MODULE_TAGS := optional
 LOCAL_STATIC_LIBRARIES := libmedia_helper \
 	libspeex
+
 LOCAL_C_INCLUDES := \
     $(call include-path-for, speex)
-LOCAL_SHARED_LIBRARIES:= libc libcutils libutils libmedia libhardware_legacy libspeexresampler
+LOCAL_SHARED_LIBRARIES:= libc libcutils libutils libmedia libhardware_legacy
+include $(BUILD_SHARED_LIBRARY)
+include $(CLEAR_VARS)
+LOCAL_SRC_FILES:= amix.c alsa_mixer.c
+LOCAL_CFLAGS += -DSUPPORT_USB
+LOCAL_MODULE:= amix
+LOCAL_SHARED_LIBRARIES := libc libcutils
+LOCAL_MODULE_TAGS:= debug
+include $(BUILD_EXECUTABLE)
+
+#build the usb simple libaudio
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := \
+    AudioHardwareInterface.cpp\
+    AudioHardware.cpp \
+    audio_hw_hal.cpp\
+    alsa_mixer.c\
+    alsa_pcm.c
+LOCAL_CFLAGS += -DSUPPORT_USB
+
+LOCAL_MODULE := audio.usb.$(TARGET_BOARD_HARDWARE)
+LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
+LOCAL_MODULE_TAGS := optional
+LOCAL_STATIC_LIBRARIES := libmedia_helper \
+	libspeex
+
+LOCAL_C_INCLUDES := \
+    $(call include-path-for, speex)
+LOCAL_SHARED_LIBRARIES:= libc libcutils libutils libmedia libhardware_legacy
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
@@ -40,6 +74,10 @@ endif
 
 ifeq ($(BOARD_HAVE_BLUETOOTH),true)
   LOCAL_CFLAGS += -DWITH_A2DP
+endif
+
+ifeq ($(strip $(TARGET_BOARD_HARDWARE)), rk2928board)
+  LOCAL_CFLAGS += -DTARGET_RK2928
 endif
 
 LOCAL_STATIC_LIBRARIES := libmedia_helper
@@ -77,26 +115,3 @@ endif
 include $(BUILD_SHARED_LIBRARY)
 endif
 
-#ifeq ($(ENABLE_AUDIO_DUMP),true)
-#  LOCAL_SRC_FILES += AudioDumpInterface.cpp
-#  LOCAL_CFLAGS += -DENABLE_AUDIO_DUMP
-#endif
-#
-#ifeq ($(strip $(BOARD_USES_GENERIC_AUDIO)),true)
-#  LOCAL_CFLAGS += -D GENERIC_AUDIO
-#endif
-
-#ifeq ($(BOARD_HAVE_BLUETOOTH),true)
-#  LOCAL_SRC_FILES += A2dpAudioInterface.cpp
-#  LOCAL_SHARED_LIBRARIES += liba2dp
-#  LOCAL_C_INCLUDES += $(call include-path-for, bluez)
-#
-#  LOCAL_CFLAGS += \
-#      -DWITH_BLUETOOTH \
-#      -DWITH_A2DP
-#endif
-#
-#include $(BUILD_SHARED_LIBRARY)
-
-#    AudioHardwareGeneric.cpp \
-#    AudioHardwareStub.cpp \

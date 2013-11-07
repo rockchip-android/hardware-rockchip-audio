@@ -26,9 +26,6 @@
 
 #include "AudioHardwareStub.h"
 #include "AudioHardwareGeneric.h"
-#ifdef WITH_A2DP
-#include "A2dpAudioInterface.h"
-#endif
 
 #ifdef ENABLE_AUDIO_DUMP
 #include "AudioDumpInterface.h"
@@ -73,6 +70,12 @@ AudioStreamOut::~AudioStreamOut()
 {
 }
 
+// default implementation is unsupported
+status_t AudioStreamOut::getNextWriteTimestamp(int64_t *timestamp)
+{
+    return INVALID_OPERATION;
+}
+
 AudioStreamIn::~AudioStreamIn() {}
 
 AudioHardwareBase::AudioHardwareBase()
@@ -83,7 +86,7 @@ AudioHardwareBase::AudioHardwareBase()
 status_t AudioHardwareBase::setMode(int mode)
 {
 #if LOG_ROUTING_CALLS
-    LOGD("setMode(%s)", displayMode(mode));
+    ALOGD("setMode(%s)", displayMode(mode));
 #endif
     if ((mode < 0) || (mode >= AudioSystem::NUM_MODES))
         return BAD_VALUE;
@@ -110,19 +113,25 @@ String8 AudioHardwareBase::getParameters(const String8& keys)
 size_t AudioHardwareBase::getInputBufferSize(uint32_t sampleRate, int format, int channelCount)
 {
     if (sampleRate != 8000) {
-        LOGW("getInputBufferSize bad sampling rate: %d", sampleRate);
+        ALOGW("getInputBufferSize bad sampling rate: %d", sampleRate);
         return 0;
     }
     if (format != AudioSystem::PCM_16_BIT) {
-        LOGW("getInputBufferSize bad format: %d", format);
+        ALOGW("getInputBufferSize bad format: %d", format);
         return 0;
     }
     if (channelCount != 1) {
-        LOGW("getInputBufferSize bad channel count: %d", channelCount);
+        ALOGW("getInputBufferSize bad channel count: %d", channelCount);
         return 0;
     }
 
     return 320;
+}
+
+// default implementation is unsupported
+status_t AudioHardwareBase::getMasterVolume(float *volume)
+{
+    return INVALID_OPERATION;
 }
 
 status_t AudioHardwareBase::dumpState(int fd, const Vector<String16>& args)
