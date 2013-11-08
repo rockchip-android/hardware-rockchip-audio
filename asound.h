@@ -667,6 +667,28 @@ typedef int __bitwise snd_ctl_elem_iface_t;
 #define SNDRV_CTL_POWER_D3hot (SNDRV_CTL_POWER_D3|0x0000)  
 #define SNDRV_CTL_POWER_D3cold (SNDRV_CTL_POWER_D3|0x0001)  
 
+/** TLV type - Container */
+#define SND_CTL_TLVT_CONTAINER		0x0000
+/** TLV type - basic dB scale */
+#define SND_CTL_TLVT_DB_SCALE		0x0001
+/** TLV type - linear volume */
+#define SND_CTL_TLVT_DB_LINEAR		0x0002
+/** TLV type - dB range container */
+#define SND_CTL_TLVT_DB_RANGE		0x0003
+/** TLV type - dB scale specified by min/max values */
+#define SND_CTL_TLVT_DB_MINMAX		0x0004
+/** TLV type - dB scale specified by min/max values (with mute) */
+#define SND_CTL_TLVT_DB_MINMAX_MUTE	0x0005
+
+/** Mute state */
+#define SND_CTL_TLV_DB_GAIN_MUTE	-9999999
+
+struct sndrv_ctl_tlv {
+ unsigned int numid;     /* control element numeric identification */
+ unsigned int length;    /* in bytes aligned to 4 */
+ unsigned int tlv[0];    /* first TLV */
+};
+
 struct snd_ctl_elem_id {
  unsigned int numid;
  snd_ctl_elem_iface_t iface;

@@ -276,7 +276,7 @@ int channalFlags = -1;//mean the channel is not checked now
 
 int startCheckCount = 0;
 
-int channel_check(void * data,int len )
+int channel_check(void * data, unsigned len)
 {
 	short * pcmLeftChannel = (short *)data;
 	short * pcmRightChannel = pcmLeftChannel+1;
@@ -325,7 +325,7 @@ int channel_check(void * data,int len )
 	return leftValid|rightValid;
 }
 
-void channel_fixed(void * data,int len, int chFlag)
+void channel_fixed(void * data, unsigned len, int chFlag)
 {
 	//we just fixed when chFlag is 1 or 2.
 	if(chFlag <= 0 || chFlag > 2 )
@@ -469,7 +469,14 @@ __open_again:
 #endif
         return pcm;
     }
-
+    while(pcm->fd == 0 || pcm->fd == 1 || pcm->fd == 2)
+    {
+        ALOGD("pcm_open old_fd=%d",pcm->fd);
+        int tmp_fd = pcm->fd;
+        pcm->fd = dup(tmp_fd);
+        close(tmp_fd);
+        ALOGD("pcm_open new_fd=%d",pcm->fd);
+    }
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_INFO, &info)) {
         oops(pcm, errno, "cannot get info - %s", dname);
         goto fail;

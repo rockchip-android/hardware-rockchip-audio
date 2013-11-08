@@ -80,6 +80,12 @@ struct mixer_ctl *mixer_get_nth_control(struct mixer *mixer, unsigned n);
 int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent);
 int mixer_ctl_select(struct mixer_ctl *ctl, const char *value);
 void mixer_ctl_print(struct mixer_ctl *ctl);
+int mixer_ctl_set_int(struct mixer_ctl *ctl, long long value);
+int mixer_tlv_get_dB_range(unsigned int *tlv, long rangemin, long rangemax,
+                                    long *min, long *max);
+int mixer_get_ctl_minmax(struct mixer_ctl *ctl, long long *min, long long *max);
+int mixer_get_dB_range(struct mixer_ctl *ctl, long rangemin, long rangemax,
+                                    float *dB_min, float *dB_max, float *dB_step);
 #ifdef SUPPORT_USB 
 void mixer_enableDevicesVolume(void);
 #endif

@@ -152,6 +152,8 @@ private:
     uint32_t        mPcmOpenCnt;
     uint32_t        mMixerOpenCnt;
     bool            mInCallAudioMode;
+    bool            mVoipAudioMode;
+    bool            mIsInCallWithModem;
 
     String8         mInputSource;
     bool            mBluetoothNrec;

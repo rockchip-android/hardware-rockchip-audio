@@ -35,6 +35,12 @@
 #define MAX_SOUND_CARDS     10
 #define VOLUME_PERCENTS     90
 #define SOUND_CTL_PREFIX    "/dev/snd/controlC"
+
+/* convert to index of integer array */
+#define int_index(size)	(((size) + sizeof(int) - 1) / sizeof(int))
+/* max size of a TLV entry for dB information (including compound one) */
+#define MAX_TLV_RANGE_SIZE	256
+
 static const char *elem_iface_name(snd_ctl_elem_iface_t n)
 {
     switch (n) {
@@ -67,6 +73,7 @@ static const char *elem_type_name(snd_ctl_elem_type_t n)
 struct mixer_ctl {
     struct mixer *mixer;
     struct snd_ctl_elem_info *info;
+    struct snd_ctl_tlv *tlv;
     char **ename;
 };
 
@@ -167,6 +174,34 @@ struct mixer *mixer_open(void)
                     goto fail;
             }
         }
+
+        //add for incall volume by Jear.Chen. get tlv.
+        if ((mixer->ctl[n].info->access & SNDRV_CTL_ELEM_ACCESS_TLV_READWRITE) == 0) {
+            ALOGV("mixer_open() type of control %s is not TLVT_DB", mixer->ctl[n].info->id.name);
+            mixer->ctl[n].tlv = NULL;
+            continue;
+        }
+
+        unsigned int tlv_size = 2 * sizeof(unsigned int) + 2 * sizeof(unsigned int);
+        struct snd_ctl_tlv *tlv = malloc(sizeof(struct sndrv_ctl_tlv) + tlv_size);
+
+        //tlv->numid < (info->id.numid + info->count) and
+        //tlv->numid >= info->id.numid
+        tlv->numid = mixer->ctl[n].info->id.numid;
+        //length >= tlv.p[1] + 2 * sizeof(unsigned int);
+        //tlv.p is DECLARE_TLV_DB_SCALE defined in kernel
+        tlv->length = tlv_size;
+
+        if (ioctl(fd, SNDRV_CTL_IOCTL_TLV_READ, tlv) < 0) {
+            ALOGE("mixer_open() get tlv for control %s fail", mixer->ctl[n].info->id.name);
+            free(tlv);
+            mixer->ctl[n].tlv = tlv = NULL;
+			continue;
+        }
+
+        ALOGD("mixer_open() get tlv for control %s", mixer->ctl[n].info->id.name);
+        mixer->ctl[n].tlv = tlv;
+        //add for incall volume end
     }
 
     free(eid);
@@ -380,6 +415,156 @@ int mixer_ctl_select(struct mixer_ctl *ctl, const char *value)
     errno = EINVAL;
     return -1;
 }
+
+//add for incall volume by Jear.Chen
+/*
+  set value to control
+*/
+int mixer_ctl_set_int(struct mixer_ctl *ctl, long long value)
+{
+    struct snd_ctl_elem_value ev;
+    unsigned n;
+
+    memset(&ev, 0, sizeof(ev));
+    ev.id.numid = ctl->info->id.numid;
+    switch (ctl->info->type) {
+    case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
+        for (n = 0; n < ctl->info->count; n++)
+            ev.value.integer.value[n] = !!value;
+        break;
+    case SNDRV_CTL_ELEM_TYPE_INTEGER: {
+        for (n = 0; n < ctl->info->count; n++)
+            ev.value.integer.value[n] = (long)value;
+        break;
+    }
+    case SNDRV_CTL_ELEM_TYPE_INTEGER64: {
+        for (n = 0; n < ctl->info->count; n++)
+            ev.value.integer64.value[n] = value;
+        break;
+    }
+    default:
+        errno = EINVAL;
+        return -1;
+    }
+
+    return ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &ev);
+}
+
+/*
+  Get min and max value of control
+ */
+int mixer_get_ctl_minmax(struct mixer_ctl *ctl, long long *min, long long *max)
+{
+    struct snd_ctl_elem_info *ei = ctl->info;
+
+    switch (ei->type) {
+    case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
+    case SNDRV_CTL_ELEM_TYPE_INTEGER:
+        *min = ei->value.integer.min;
+        *max = ei->value.integer.max;
+        break;
+	case SNDRV_CTL_ELEM_TYPE_INTEGER64:
+        *min = ei->value.integer64.min;
+        *max = ei->value.integer64.max;
+        break;
+    case SNDRV_CTL_ELEM_TYPE_ENUMERATED:
+        *min = 0;
+        *max = ei->value.enumerated.items;
+        break;
+    default:
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
+/*
+  Get dB range from tlv[] which is obtained from control
+ */
+int mixer_tlv_get_dB_range(unsigned int *tlv, long rangemin, long rangemax,
+                                    long *min, long *max)
+{
+    int err;
+
+    switch (tlv[0]) {
+    case SND_CTL_TLVT_DB_RANGE: {
+        unsigned int pos, len;
+        len = int_index(tlv[1]);
+        if (len > MAX_TLV_RANGE_SIZE)
+            return -EINVAL;
+        pos = 2;
+        while (pos + 4 <= len) {
+            long rmin, rmax;
+            rangemin = (int)tlv[pos];
+            rangemax = (int)tlv[pos + 1];
+            err = mixer_tlv_get_dB_range(tlv + pos + 2,
+                rangemin, rangemax,
+                &rmin, &rmax);
+            if (err < 0)
+                return err;
+            if (pos > 2) {
+                if (rmin < *min)
+                    *min = rmin;
+                if (rmax > *max)
+                    *max = rmax;
+            } else {
+                *min = rmin;
+                *max = rmax;
+            }
+            pos += int_index(tlv[pos + 3]) + 4;
+        }
+        return 0;
+    }
+    case SND_CTL_TLVT_DB_SCALE: {
+        long step;
+        *min = (int)tlv[2];
+        step = (tlv[3] & 0xffff);
+        *max = *min + (long)(step * (rangemax - rangemin));
+        return 0;
+    }
+    case SND_CTL_TLVT_DB_MINMAX:
+    case SND_CTL_TLVT_DB_MINMAX_MUTE:
+    case SND_CTL_TLVT_DB_LINEAR:
+        *min = (int)tlv[2];
+        *max = (int)tlv[3];
+        return 0;
+    }
+    return -EINVAL;
+}
+
+/*
+  Get dB range of control
+ */
+int mixer_get_dB_range(struct mixer_ctl *ctl, long rangemin, long rangemax,
+                                    float *dB_min, float *dB_max, float *dB_step)
+{
+    unsigned int *tlv;
+    long min, max;
+
+    if (ctl->tlv == NULL) {
+        ALOGE("mixer_get_dB_range() type of control %s is not a TLVT_DB", ctl->info->id.name);
+        return -EINVAL;
+    }
+
+    if (mixer_tlv_get_dB_range(ctl->tlv->tlv, rangemin, rangemax,
+           &min, &max) < 0) {
+        ALOGE("mixer_get_dB_range() get control dB range fail");
+        return -EINVAL;
+    }
+
+    *dB_min = min * 1.0 / 100;
+    *dB_max = max * 1.0 / 100;
+    *dB_step = (max - min) * 1.0 / (rangemax - rangemin) / 100;
+
+    ALOGV("control %s : dB min = %f, dB max = %f, dB step = %f",
+           ctl->info->id.name,
+           *dB_min,
+           *dB_max,
+           *dB_step);
+
+    return 0;
+}
+//add for incall volume end
 
 #ifdef SUPPORT_USB	
 
