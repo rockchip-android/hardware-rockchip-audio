@@ -32,7 +32,7 @@ struct pcm;
 
 #define PCM_CARD0      0x00000000
 #define PCM_CARD1      0x00000001
-
+#define PCM_CARD2	   0x00000002
 #define PCM_PERIOD_CNT_MIN 3
 #define PCM_PERIOD_CNT_SHIFT 16
 #define PCM_PERIOD_CNT_MASK (0xF << PCM_PERIOD_CNT_SHIFT)

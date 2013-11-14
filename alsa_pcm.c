@@ -15,7 +15,7 @@
 */
 
 #define LOG_TAG "alsa_pcm"
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 #include <cutils/log.h>
 #include <cutils/config_utils.h>
 
@@ -435,17 +435,28 @@ struct pcm *pcm_open(unsigned flags)
 __open_again:
 
     if (flags & PCM_IN) {
-        dname = "/dev/snd/pcmC0D0c";
+		if(flags & PCM_CARD2){
+        	dname = "/dev/snd/pcmC2D0c";
+		}else if(flags & PCM_CARD1){
+			dname = "/dev/snd/pcmC1D0c";
+		}else{
+			dname = "/dev/snd/pcmC0D0c";
+		}
 		channalFlags = -1;
 		startCheckCount = 0;
     } else {
 #ifdef SUPPORT_USB
         dname = "/dev/snd/pcmC1D0p";
 #else
-        if (flags & PCM_CARD1)
-            dname = "/dev/snd/pcmC1D0p";
-        else
+        if (flags & PCM_CARD2){
+            dname = "/dev/snd/pcmC2D0p";
+			usleep(2000 * 1000);
+        }else if(flags & PCM_CARD1){
+			dname = "/dev/snd/pcmC1D0p";
+		}
+        else{
             dname = "/dev/snd/pcmC0D0p";
+        }
 #endif
     }
 
@@ -502,9 +513,12 @@ __open_again:
                   (flags & PCM_MONO) ? 1 : 2);
     param_set_int(&params, SNDRV_PCM_HW_PARAM_PERIODS, period_cnt);
     if (flags & PCM_8000HZ) {
-        ALOGD("set audio capture 8KHz");
+        ALOGD("set audio 8KHz");
         param_set_int(&params, SNDRV_PCM_HW_PARAM_RATE, 8000);
-    } else
+    } else if (flags & PCM_48000HZ){
+    	ALOGD("set audio 48KHz");
+		param_set_int(&params,SNDRV_PCM_HW_PARAM_RATE,48000);
+	}else
         param_set_int(&params, SNDRV_PCM_HW_PARAM_RATE, 44100);
 
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_HW_PARAMS, &params)) {

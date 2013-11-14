@@ -15,7 +15,7 @@
  */
 
 #define LOG_TAG "AudioPolicyManagerBase"
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 
 //#define VERY_VERBOSE_LOGGING
 #ifdef VERY_VERBOSE_LOGGING
@@ -38,13 +38,13 @@
 #include <math.h>
 #include <hardware_legacy/audio_policy_conf.h>
 #include <cutils/properties.h>
+#include "AudioUsbAudioHardware.h"
 
 namespace android_audio_legacy {
 
 // ----------------------------------------------------------------------------
 // AudioPolicyInterface implementation
 // ----------------------------------------------------------------------------
-
 
 status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device,
                                                   AudioSystem::device_connection_state state,
@@ -53,7 +53,17 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
     SortedVector <audio_io_handle_t> outputs;
 
     ALOGV("setDeviceConnectionState() device: %x, state %d, address %s", device, state, device_address);
-
+	if(device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET  && state){//usb-audio 
+		mHasUsbAudioConnected=has_usbaudio_speaker_mic("Playback");
+		if(mHasUsbAudioConnected){
+			ALOGD("usb audio is connect");
+		}else{
+			return BAD_VALUE;//not support usbspeaker
+		}
+	}else if(device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET  && !state){
+		mHasUsbAudioConnected = false;
+		ALOGD("usb audio is disconnect");
+	}
     // connect/disconnect only 1 device at a time
     if (!audio_is_output_device(device) && !audio_is_input_device(device)) return BAD_VALUE;
 
@@ -176,7 +186,7 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
         updateDevicesAndOutputs();
         for (size_t i = 0; i < mOutputs.size(); i++) {
             setOutputDevice(mOutputs.keyAt(i),
-                            getNewDevice(mOutputs.keyAt(i), true /*fromCache*/),
+                            getNewDevice(mOutputs.keyAt(i), false /*fromCache*/),
                             true,
                             0);
         }
@@ -189,7 +199,10 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
             device = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
         } else if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL) {
             device = AUDIO_DEVICE_IN_AUX_DIGITAL;
-        } else {
+        } else if (device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET){
+        	//now we support usb audio
+        	return NO_ERROR;
+		}else {
             return NO_ERROR;
         }
     }
@@ -699,6 +712,7 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
 
         output = selectOutput(outputs, flags);
     }
+
     ALOGW_IF((output == 0), "getOutput() could not find output for stream %d, samplingRate %d,"
             "format %d, channels %x, flags %x", stream, samplingRate, format, channelMask, flags);
 
@@ -1546,8 +1560,8 @@ AudioPolicyManagerBase::AudioPolicyManagerBase(AudioPolicyClientInterface *clien
     mPhoneState(AudioSystem::MODE_NORMAL),
     mLimitRingtoneVolume(false), mLastVoiceVolume(-1.0f),
     mTotalEffectsCpuLoad(0), mTotalEffectsMemory(0),
-    mA2dpSuspended(false), mHasA2dp(false), mHasUsb(false), mHasRemoteSubmix(false),
-    isCaptureRateChange(false)
+    mA2dpSuspended(false), mHasA2dp(false), mHasUsb(false),mHasUsbAudioConnected(false),
+    mHasRemoteSubmix(false),isCaptureRateChange(false)
 {
     mpClientInterface = clientInterface;
 
@@ -2274,17 +2288,23 @@ audio_devices_t AudioPolicyManagerBase::getNewDevice(audio_io_handle_t output, b
     //      use device for strategy DTMF
     if (outputDesc->isStrategyActive(STRATEGY_ENFORCED_AUDIBLE)) {
         device = getDeviceForStrategy(STRATEGY_ENFORCED_AUDIBLE, fromCache);
+		ALOGD("-----getNewDevice enter STRATEGY_ENFORCED_AUDIBLE----");
     } else if (isInCall() ||
                     outputDesc->isStrategyActive(STRATEGY_PHONE)) {
         device = getDeviceForStrategy(STRATEGY_PHONE, fromCache);
+		ALOGD("-----getNewDevice enter STRATEGY_PHONE----");
     } else if (outputDesc->isStrategyActive(STRATEGY_SONIFICATION)) {
         device = getDeviceForStrategy(STRATEGY_SONIFICATION, fromCache);
+		ALOGD("-----getNewDevice enter STRATEGY_SONIFICATION----");
     } else if (outputDesc->isStrategyActive(STRATEGY_SONIFICATION_RESPECTFUL)) {
         device = getDeviceForStrategy(STRATEGY_SONIFICATION_RESPECTFUL, fromCache);
+		ALOGD("-----getNewDevice enter STRATEGY_SONIFICATION_RESPECTFUL----");
     } else if (outputDesc->isStrategyActive(STRATEGY_MEDIA)) {
         device = getDeviceForStrategy(STRATEGY_MEDIA, fromCache);
+		ALOGD("-----getNewDevice enter STRATEGY_MEDIA----");
     } else if (outputDesc->isStrategyActive(STRATEGY_DTMF)) {
         device = getDeviceForStrategy(STRATEGY_DTMF, fromCache);
+		ALOGD("-----getNewDevice enter STRATEGY_DTMF----");
     }
 
     ALOGV("getNewDevice() selected device %x", device);
@@ -2532,8 +2552,8 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy st
             // no sonification on aux digital (e.g. HDMI)
             device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_AUX_DIGITAL;
         }
-        if ((device2 == AUDIO_DEVICE_NONE) &&
-                (mForceUse[AudioSystem::FOR_DOCK] == AudioSystem::FORCE_ANALOG_DOCK)) {
+        if ((device2 == AUDIO_DEVICE_NONE) /*&&
+                (mForceUse[AudioSystem::FOR_DOCK] == AudioSystem::FORCE_ANALOG_DOCK)*/) {
             device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET;
         }
         if (device2 == AUDIO_DEVICE_NONE) {
@@ -2692,6 +2712,36 @@ uint32_t AudioPolicyManagerBase::setOutputDevice(audio_io_handle_t output,
     ALOGV("setOutputDevice() changing device");
     // do the routing
     param.addInt(String8(AudioParameter::keyRouting), (int)device);
+	
+	if (device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET)
+	{
+		if(device != prevDevice)
+		{
+			uint32_t usbspeaker_sampleRate = get_usbaudio_cap("Playback","Rates");
+			if(usbspeaker_sampleRate == 0)
+				usbspeaker_sampleRate = UA_Playback_SampleRate;
+			if(usbspeaker_sampleRate != outputDesc->mSamplingRate)
+			{
+				param.addInt(String8(AudioParameter::keySamplingRate),(int)usbspeaker_sampleRate);
+				ALOGD("setOutputDevice,open usb speaker samplerate =%d",usbspeaker_sampleRate);
+			}
+		}
+	}
+	else
+	{
+		String8 command = mpClientInterface->getParameters(output, String8(AudioParameter::keySamplingRate));
+		AudioParameter getParam = AudioParameter(command);
+		int SamplingRate;
+		
+		if (getParam.getInt(String8(AudioParameter::keySamplingRate), SamplingRate) == NO_ERROR) 
+		{
+			if(SamplingRate != ((int)outputDesc->mSamplingRate))
+			{
+    			param.addInt(String8(AudioParameter::keySamplingRate),(int)outputDesc->mSamplingRate);
+				ALOGD("setOutputDevice,close usb speadker origin samplerate =%d now samplerate =%d ",SamplingRate,(int)outputDesc->mSamplingRate);
+			}
+		}
+	}
     mpClientInterface->setParameters(output, param.toString(), delayMs);
 
     if (device != AUDIO_DEVICE_NONE) {

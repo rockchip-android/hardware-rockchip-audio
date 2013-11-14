@@ -16,7 +16,7 @@
 
 #include <math.h>
 
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 
 #define LOG_TAG "AudioHardware"
 
@@ -41,7 +41,7 @@
 extern "C" {
 #include "alsa_audio.h"
 }
-
+#include "AudioUsbAudioHardware.h"
 
 //when you want write the output data ,you can open this maroc.
 //#define DEBUG_ALSA_OUT
@@ -857,7 +857,13 @@ struct pcm *AudioHardware::openPcmOut_l()
 
         if (mOutput->device() & AudioSystem::DEVICE_OUT_AUX_DIGITAL) {
             flags |= PCM_CARD1;
-        }
+        }else if(mOutput->device() & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET){
+			flags |= PCM_CARD2;
+			uint32_t usbspeaker_sampleRate = get_usbaudio_cap("Playback","Rates");
+			if(usbspeaker_sampleRate == 48000)
+				flags |= PCM_48000HZ;
+			ALOGV("openPcmOut_l() usb audio is connect,usbspeaker_sampleRate=%d",usbspeaker_sampleRate);
+		}
 
         TRACE_DRIVER_IN(DRV_PCM_OPEN)
         mPcm = pcm_open(flags);
@@ -1330,7 +1336,7 @@ status_t AudioHardware::AudioStreamOutALSA::setParameters(const String8& keyValu
 {
     AudioParameter param = AudioParameter(keyValuePairs);
     status_t status = NO_ERROR;
-    int device;
+    int device,value;
     ALOGD("AudioStreamOutALSA::setParameters() %s", keyValuePairs.string());
 
     if (mHardware == NULL) return NO_INIT;
@@ -1372,6 +1378,18 @@ status_t AudioHardware::AudioStreamOutALSA::setParameters(const String8& keyValu
             }
             param.remove(String8(AudioParameter::keyRouting));
         }
+		if (param.getInt(String8(AudioParameter::keySamplingRate), value) == NO_ERROR)
+        {
+            if (mSampleRate != (uint32_t)value && value != 0 &&
+                (value == 48000 || value == 44100)) {
+                android::AutoMutex hwLock(mHardware->lock());
+                if (mHardware->mode() != AudioSystem::MODE_IN_CALL) {
+                    doStandby_l();
+                }
+                mSampleRate = (uint32_t)value;
+            }
+            param.remove(String8(AudioParameter::keySamplingRate));
+        }
     }
 
     if (param.size()) {
@@ -1391,6 +1409,10 @@ String8 AudioHardware::AudioStreamOutALSA::getParameters(const String8& keys)
 
     if (param.get(key, value) == NO_ERROR) {
         param.addInt(key, (int)mDevices);
+    }
+	
+    if (param.get(String8(AudioParameter::keySamplingRate), value) == NO_ERROR) {
+        param.addInt(String8(AudioParameter::keySamplingRate), (int)mSampleRate);
     }
 
     ALOGV("AudioStreamOutALSA::getParameters() %s", param.toString().string());
