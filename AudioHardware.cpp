@@ -52,7 +52,7 @@ extern "C" {
 namespace android_audio_legacy {
 
 const uint32_t AudioHardware::inputSamplingRates[] = {
-        8000, 11025, 16000, 22050, 44100
+        8000, 11025, 16000, 22050, 44100,48000
 };
 
 //  trace driver operations for dump
@@ -859,7 +859,7 @@ struct pcm *AudioHardware::openPcmOut_l()
             flags |= PCM_CARD1;
         }else if(mOutput->device() & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET){
 			flags |= PCM_CARD2;
-			uint32_t usbspeaker_sampleRate = get_usbaudio_cap("Playback","Rates");
+			uint32_t usbspeaker_sampleRate = get_USBAudio_sampleRate("Playback");
 			if(usbspeaker_sampleRate == 48000)
 				flags |= PCM_48000HZ;
 			ALOGV("openPcmOut_l() usb audio is connect,usbspeaker_sampleRate=%d",usbspeaker_sampleRate);
@@ -1478,18 +1478,24 @@ status_t AudioHardware::AudioStreamInALSA::set(
     }
 	if(*pChannels == AudioSystem::CHANNEL_IN_MONO )
 		*pChannels = AudioSystem::CHANNEL_IN_STEREO;
+	if(devices & AudioSystem::DEVICE_IN_ANLG_DOCK_HEADSET){
+		*pChannels =(get_USBAudio_Channels(UA_Record_type)==1?AudioSystem::CHANNEL_IN_MONO:
+					AudioSystem::CHANNEL_IN_STEREO);
+		mInSampleRate = get_USBAudio_sampleRate(UA_Record_type);
+	}
+
 
     mHardware = hw;
 
-    ALOGV("AudioStreamInALSA::set(%d, %d, %u)", *pFormat, *pChannels, *pRate);
+    ALOGV("AudioStreamInALSA::set(%d, %d, %u,%x)", *pFormat, *pChannels, *pRate,devices);
 
     mDevices = devices;
     mChannels = *pChannels;
     mChannelCount = AudioSystem::popCount(mChannels);
     mReqSampleRate = rate;
-    if (mInSampleRate == 8000) {
-        mSampleRate = 8000;
-    } else {
+    if (mInSampleRate != AUDIO_HW_IN_SAMPLERATE) {//DownSample depends on whether the mInSampleRate = mSampleRate
+        mSampleRate = mInSampleRate;
+    }else {
         mSampleRate = rate;
     }
     mBufferSize = getBufferSize(mSampleRate, AudioSystem::popCount(*pChannels));
@@ -1789,14 +1795,17 @@ status_t AudioHardware::AudioStreamInALSA::open_l()
     if (mChannels == AudioSystem::CHANNEL_IN_MONO) {
         flags |= PCM_MONO;
     }
-    flags |= (AUDIO_HW_IN_PERIOD_MULT  / (44100 / mInSampleRate) - 1) << PCM_PERIOD_SZ_SHIFT;
+    flags |= (AUDIO_HW_IN_PERIOD_MULT  / (48000 / mInSampleRate) - 1) << PCM_PERIOD_SZ_SHIFT;
     flags |= (AUDIO_HW_IN_PERIOD_CNT - PCM_PERIOD_CNT_MIN)
             << PCM_PERIOD_CNT_SHIFT;
-
+	if(mDevices & AudioSystem::DEVICE_IN_ANLG_DOCK_HEADSET){
+		flags|=PCM_CARD2;
+	}
     if (mInSampleRate == 8000) {
         flags |= PCM_8000HZ;
-    }
-
+    }else if (mInSampleRate == 48000) {//add the SampleRate usb mic you need
+		flags |= PCM_48000HZ;
+	} 
     ALOGV("open pcm_in driver");
     TRACE_DRIVER_IN(DRV_PCM_OPEN)
     mPcm = pcm_open(flags);
@@ -1997,18 +2006,18 @@ status_t AudioHardware::AudioStreamInALSA::getNextBuffer(AudioHardware::BufferPr
 
     if (mInPcmInBuf == 0) {
         TRACE_DRIVER_IN(DRV_PCM_READ)
-        mReadStatus = pcm_read(mPcm,(void*) mPcmIn, AUDIO_HW_IN_PERIOD_SZ * frameSize() / (44100 / mInSampleRate));
+        mReadStatus = pcm_read(mPcm,(void*) mPcmIn, AUDIO_HW_IN_PERIOD_SZ * frameSize() / (48000 / mInSampleRate));
         TRACE_DRIVER_OUT
         if (mReadStatus != 0) {
             buffer->raw = NULL;
             buffer->frameCount = 0;
             return mReadStatus;
         }
-        mInPcmInBuf = AUDIO_HW_IN_PERIOD_SZ  / (44100 / mInSampleRate);
+        mInPcmInBuf = AUDIO_HW_IN_PERIOD_SZ  / (48000 / mInSampleRate);
     }
 
     buffer->frameCount = (buffer->frameCount > mInPcmInBuf) ? mInPcmInBuf : buffer->frameCount;
-    buffer->i16 = mPcmIn + (AUDIO_HW_IN_PERIOD_SZ  / (44100 / mInSampleRate) - mInPcmInBuf) * mChannelCount;
+    buffer->i16 = mPcmIn + (AUDIO_HW_IN_PERIOD_SZ  / (48000 / mInSampleRate) - mInPcmInBuf) * mChannelCount;
 
     return mReadStatus;
 }
@@ -2032,6 +2041,7 @@ size_t AudioHardware::AudioStreamInALSA::getBufferSize(uint32_t sampleRate, int 
         ratio = 2;
         break;
     case 44100:
+	case 48000:
     default:
         ratio = 1;
         break;
