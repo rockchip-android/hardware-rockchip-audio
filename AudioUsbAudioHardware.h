@@ -17,13 +17,8 @@
 #define UA_Playback_SampleRate 48000
 #define RETRY_TIMES 10
 #define RETRY_SLEEPTIME 300*1000
-#define UA_Record_type "Capture"
-#define UA_Playback_type "Playback"
-#define UA_Format   "Format"
-#define UA_Channels "Channels"
-#define UA_SampleRates "Rates"
 
-bool   has_USBAudio_Speaker_MIC(const char *type){
+bool   has_usbaudio_speaker_mic(const char *type){
 	int fd;
 	char buf[2048]={0};
 	char *str,tmp[6]={0};
@@ -53,7 +48,7 @@ bool   has_USBAudio_Speaker_MIC(const char *type){
 	}
 }
 
-uint32_t get_USBAudio_sampleRate(const char *type){//support like this: Rates: 8000, 16000, 24000, 32000, 44100, 48000  or  Rates: 48000
+uint32_t get_usbaudio_cap(const char *type,const char *param){//support like this: Rates: 8000, 16000, 24000, 32000, 44100, 48000  or  Rates: 48000
 	int fd;
 	uint32_t sampleRate=0;
 	char buf[2048]={0};
@@ -81,7 +76,7 @@ uint32_t get_USBAudio_sampleRate(const char *type){//support like this: Rates: 8
 		str = strstr(buf,type);
 		if(str)
 		{
-			str = strstr(str,UA_SampleRates);//point to the param line
+			str = strstr(buf,param);//point to the param line
 			if(str)
 			{
 				nbytes = strlen(str);
@@ -121,38 +116,6 @@ uint32_t get_USBAudio_sampleRate(const char *type){//support like this: Rates: 8
 		}
 		return sampleRate;
 	}
-}
-uint32_t get_USBAudio_Channels(const char *type){
-	int fd;
-	uint32_t channels=0;
-	char *str,tmp[6]={0};
-	char buf[2048]={0};
-	for(int i=0;i<RETRY_TIMES;i++)
-	{
-		fd = open(UA_Path,O_RDONLY);
-		if(fd<0)
-		{
-			ALOGD("can not open /proc/asound/card2/stream0,try time =%d",i+1);
-			usleep(RETRY_SLEEPTIME);
-			continue;
-		}
-		break;
-	}
-	if(fd<0){
-		ALOGV("cant open /proc/asound/card2/stream0,giveup");
-		return 0;
-	}else{
-		read(fd,buf,sizeof(buf)-1);
-		close(fd);
-		str = strstr(buf,type);
-		if(str){
-			str = strstr(str,UA_Channels);//point to the param line
-			strncpy(tmp,str+10,1);
-			channels = atoi(tmp);
-		}
-		return channels;
-	}
-
 }
 
 #endif

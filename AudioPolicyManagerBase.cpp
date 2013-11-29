@@ -54,7 +54,7 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
 
     ALOGV("setDeviceConnectionState() device: %x, state %d, address %s", device, state, device_address);
 	if(device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET  && state){//usb-audio 
-		mHasUsbAudioConnected=has_USBAudio_Speaker_MIC(UA_Playback_type);
+		mHasUsbAudioConnected=has_usbaudio_speaker_mic("Playback");
 		if(mHasUsbAudioConnected){
 			ALOGD("usb audio is connect");
 		}else{
@@ -197,15 +197,11 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
                    device == AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET ||
                    device == AUDIO_DEVICE_OUT_BLUETOOTH_SCO_CARKIT) {
             device = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
-		} else if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL) {
+        } else if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL) {
             device = AUDIO_DEVICE_IN_AUX_DIGITAL;
-		} else if (device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET ){
-			if(has_USBAudio_Speaker_MIC(UA_Record_type)){
-				ALOGV("USB mic is connect");
-				device = AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET;
-			}else{
-				return NO_ERROR;
-			}
+        } else if (device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET){
+        	//now we support usb audio
+        	return NO_ERROR;
 		}else {
             return NO_ERROR;
         }
@@ -2721,7 +2717,7 @@ uint32_t AudioPolicyManagerBase::setOutputDevice(audio_io_handle_t output,
 	{
 		if(device != prevDevice)
 		{
-			uint32_t usbspeaker_sampleRate = get_USBAudio_sampleRate("Playback");
+			uint32_t usbspeaker_sampleRate = get_usbaudio_cap("Playback","Rates");
 			if(usbspeaker_sampleRate == 0)
 				usbspeaker_sampleRate = UA_Playback_SampleRate;
 			if(usbspeaker_sampleRate != outputDesc->mSamplingRate)
@@ -2798,8 +2794,6 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
         if (mForceUse[AudioSystem::FOR_RECORD] == AudioSystem::FORCE_BT_SCO &&
             mAvailableInputDevices & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) {
             device = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
-        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET){
-        	device = AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET;
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_WIRED_HEADSET) {
             device = AUDIO_DEVICE_IN_WIRED_HEADSET;
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BUILTIN_MIC) {
@@ -2807,10 +2801,7 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
         }
         break;
     case AUDIO_SOURCE_CAMCORDER:
-
-		if (mAvailableInputDevices & AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET) {
-            device = AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET;
-        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BACK_MIC) {
+        if (mAvailableInputDevices & AUDIO_DEVICE_IN_BACK_MIC) {
             device = AUDIO_DEVICE_IN_BACK_MIC;
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BUILTIN_MIC) {
             device = AUDIO_DEVICE_IN_BUILTIN_MIC;
