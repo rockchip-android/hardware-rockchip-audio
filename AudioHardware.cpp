@@ -14,7 +14,7 @@
 ** limitations under the License.
 */
 
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 #define LOG_TAG "AudioHardware"
 
@@ -122,12 +122,12 @@ AudioHardware::~AudioHardware()
     closeOutputStream((android_audio_legacy::AudioStreamOut*)mOutput.get());
 
     if (mPcm) {
-        TRACE_DRIVER_IN(DRV_PCM_CLOSE)
-        route_pcm_close(mPcm);
-        TRACE_DRIVER_OUT
-
         TRACE_DRIVER_IN(DRV_MIXER_SEL)
         route_set_controls(PLAYBACK_OFF_ROUTE);
+        TRACE_DRIVER_OUT
+
+        TRACE_DRIVER_IN(DRV_PCM_CLOSE)
+        route_pcm_close(mPcm);
         TRACE_DRIVER_OUT
     }
 
@@ -1105,7 +1105,8 @@ status_t AudioHardware::AudioStreamOutALSA::standby()
 
     { // scope for the AudioHardware lock
          android::AutoMutex hwLock(mHardware->lock());
-        if (mHardware->mode() != AudioSystem::MODE_IN_CALL)
+        if (mHardware->mode() != AudioSystem::MODE_IN_CALL &&
+            mHardware->mode() != AudioSystem::MODE_IN_COMMUNICATION)
             doStandby_l();
     }
 
@@ -1207,6 +1208,11 @@ status_t AudioHardware::AudioStreamOutALSA::setParameters(const String8& keyValu
                 mDevices = (uint32_t)value;
                 if (mHardware->mode() == AudioSystem::MODE_IN_CALL) {
                     mHardware->setIncallPath_l(mDevices);
+                } else if (mHardware->mode() == AudioSystem::MODE_IN_COMMUNICATION) {
+                    ALOGV("setParameters() setting Voip Path");
+                    TRACE_DRIVER_IN(DRV_MIXER_SEL)
+                    route_set_controls(mHardware->getRouteFromDevice(mDevices));
+                    TRACE_DRIVER_OUT
                 } else
                     needStandby = true;
             }
@@ -1221,7 +1227,8 @@ status_t AudioHardware::AudioStreamOutALSA::setParameters(const String8& keyValu
                 mSampleRate = (uint32_t)value;
 
                 android::AutoMutex hwLock(mHardware->lock());
-                if (mHardware->mode() != AudioSystem::MODE_IN_CALL) {
+                if (mHardware->mode() != AudioSystem::MODE_IN_CALL &&
+                    mHardware->mode() != AudioSystem::MODE_IN_COMMUNICATION) {
                     needStandby = true;
                 }
             }
@@ -1741,7 +1748,8 @@ status_t AudioHardware::AudioStreamInALSA::setParameters(const String8& keyValue
                 (value == 8000 || value == 44100 || value == 48000)) {
                 mInSampleRate = (uint32_t)value;
                 reconfig = true;
-                if (mHardware->mode() != AudioSystem::MODE_IN_CALL) {
+                if (mHardware->mode() != AudioSystem::MODE_IN_CALL &&
+                    mHardware->mode() != AudioSystem::MODE_IN_COMMUNICATION) {
                     needStandby = true;
                 }
             }
@@ -1754,7 +1762,8 @@ status_t AudioHardware::AudioStreamInALSA::setParameters(const String8& keyValue
                 (value == AudioSystem::CHANNEL_IN_STEREO || value == AudioSystem::CHANNEL_IN_MONO)) {
                 mChannels = (uint32_t)value;
                 reconfig = true;
-                if (mHardware->mode() != AudioSystem::MODE_IN_CALL) {
+                if (mHardware->mode() != AudioSystem::MODE_IN_CALL &&
+                    mHardware->mode() != AudioSystem::MODE_IN_COMMUNICATION) {
                     needStandby = true;
                 }
             }
@@ -1765,7 +1774,8 @@ status_t AudioHardware::AudioStreamInALSA::setParameters(const String8& keyValue
         {
             if (mDevices != (uint32_t)value && (uint32_t)value != AUDIO_DEVICE_NONE) {
                 mDevices = (uint32_t)value;
-                if (mHardware->mode() != AudioSystem::MODE_IN_CALL) {
+                if (mHardware->mode() != AudioSystem::MODE_IN_CALL &&
+                    mHardware->mode() != AudioSystem::MODE_IN_COMMUNICATION) {
                     needStandby = true;
                 }
             }

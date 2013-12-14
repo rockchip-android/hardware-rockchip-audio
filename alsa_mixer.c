@@ -43,6 +43,12 @@
 /* max size of a TLV entry for dB information (including compound one) */
 #define MAX_TLV_RANGE_SIZE	256
 
+char *volume_controls_name_table[] = {
+    "Earpiece Playback Volume",
+    "Speaker Playback Volume",
+    "Headphone Playback Volume",
+};
+
 static const char *elem_iface_name(snd_ctl_elem_iface_t n)
 {
     switch (n) {
@@ -80,6 +86,8 @@ void mixer_close(struct mixer *mixer)
 
     if (mixer->ctl) {
         for (n = 0; n < mixer->count; n++) {
+            if (mixer->ctl[n].tlv)
+                free(mixer->ctl[n].tlv);
             if (mixer->ctl[n].ename) {
                 unsigned max = mixer->ctl[n].info->value.enumerated.items;
                 for (m = 0; m < max; m++)
@@ -103,7 +111,7 @@ struct mixer *mixer_open(unsigned card)
     struct snd_ctl_elem_info tmp;
     struct snd_ctl_elem_id *eid = NULL;
     struct mixer *mixer = NULL;
-    unsigned n, m;
+    unsigned n, m, i, max = sizeof(volume_controls_name_table) / sizeof(char *);
     int fd;
 
     sprintf(dname, SOUND_CTL_PREFIX, card);
@@ -164,6 +172,16 @@ struct mixer *mixer_open(unsigned card)
         }
 
         //add for incall volume by Jear.Chen. get tlv.
+        for (i = 0; i < max; i++) {
+            if (!strcmp((char*) mixer->ctl[n].info->id.name, volume_controls_name_table[i]))
+                break;
+        }
+
+        if (i >= max) {
+            mixer->ctl[n].tlv = NULL;
+            continue;
+        }
+
         if ((mixer->ctl[n].info->access & SNDRV_CTL_ELEM_ACCESS_TLV_READWRITE) == 0) {
             ALOGV("mixer_open() type of control %s is not TLVT_DB", mixer->ctl[n].info->id.name);
             mixer->ctl[n].tlv = NULL;
