@@ -27,14 +27,16 @@
 #define __bitwise
 #define __user
 #include "asound.h"
-#define LOG_TAG "alsa_mix"
+#define LOG_TAG "alsa_mixer"
+
+//#define LOG_NDEBUG 0
 
 #include "alsa_audio.h"
 #include <cutils/log.h>
 
 #define MAX_SOUND_CARDS     10
 #define VOLUME_PERCENTS     90
-#define SOUND_CTL_PREFIX    "/dev/snd/controlC"
+#define SOUND_CTL_PREFIX    "/dev/snd/controlC%d"
 
 /* convert to index of integer array */
 #define int_index(size)	(((size) + sizeof(int) - 1) / sizeof(int))
@@ -69,21 +71,6 @@ static const char *elem_type_name(snd_ctl_elem_type_t n)
     }
 }
 
-
-struct mixer_ctl {
-    struct mixer *mixer;
-    struct snd_ctl_elem_info *info;
-    struct snd_ctl_tlv *tlv;
-    char **ename;
-};
-
-struct mixer {
-    int fd;
-    struct snd_ctl_elem_info *info;
-    struct mixer_ctl *ctl;
-    unsigned count;
-};
-
 void mixer_close(struct mixer *mixer)
 {
     unsigned n,m;
@@ -109,8 +96,9 @@ void mixer_close(struct mixer *mixer)
     free(mixer);
 }
 
-struct mixer *mixer_open(void)
+struct mixer *mixer_open(unsigned card)
 {
+    char dname[sizeof(SOUND_CTL_PREFIX) + 20];
     struct snd_ctl_elem_list elist;
     struct snd_ctl_elem_info tmp;
     struct snd_ctl_elem_id *eid = NULL;
@@ -118,14 +106,14 @@ struct mixer *mixer_open(void)
     unsigned n, m;
     int fd;
 
-#ifdef SUPPORT_USB	
-    fd = open("/dev/snd/controlC1", O_RDWR);
-#else
-	fd = open("/dev/snd/controlC0", O_RDWR);
-#endif
-	
-    if (fd < 0)
+    sprintf(dname, SOUND_CTL_PREFIX, card);
+
+    fd = open(dname, O_RDWR);
+
+    if (fd < 0) {
+        ALOGE("mixer_open() Can not open %s for card %d", dname, card);
         return 0;
+    }
 
     memset(&elist, 0, sizeof(elist));
     if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_LIST, &elist) < 0)
@@ -199,7 +187,7 @@ struct mixer *mixer_open(void)
 			continue;
         }
 
-        ALOGD("mixer_open() get tlv for control %s", mixer->ctl[n].info->id.name);
+        ALOGV("mixer_open() get tlv for control %s", mixer->ctl[n].info->id.name);
         mixer->ctl[n].tlv = tlv;
         //add for incall volume end
     }
@@ -275,7 +263,7 @@ struct mixer_ctl *mixer_get_control(struct mixer *mixer,
     for (n = 0; n < mixer->count; n++) {
         if (mixer->info[n].id.index == index) {
             if (!strcmp(name, (char*) mixer->info[n].id.name)) {
-				ALOGI("-->%s access %d",mixer->info[n].id.name,mixer->info[n].access);
+				ALOGV("-->%s access %d",mixer->info[n].id.name,mixer->info[n].access);
                 return mixer->ctl + n;
             }
         }
@@ -420,34 +408,50 @@ int mixer_ctl_select(struct mixer_ctl *ctl, const char *value)
 /*
   set value to control
 */
-int mixer_ctl_set_int(struct mixer_ctl *ctl, long long value)
+
+int mixer_ctl_set_int_double(struct mixer_ctl *ctl, long long left, long long right)
 {
     struct snd_ctl_elem_value ev;
-    unsigned n;
+    unsigned n, max;
+    long long value = left;
 
     memset(&ev, 0, sizeof(ev));
     ev.id.numid = ctl->info->id.numid;
     switch (ctl->info->type) {
     case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
-        for (n = 0; n < ctl->info->count; n++)
+        for (n = 0; n < ctl->info->count; n++) {
             ev.value.integer.value[n] = !!value;
+            value = right;
+        }
         break;
     case SNDRV_CTL_ELEM_TYPE_INTEGER: {
-        for (n = 0; n < ctl->info->count; n++)
+        for (n = 0; n < ctl->info->count; n++) {
             ev.value.integer.value[n] = (long)value;
+            value = right;
+        }
         break;
     }
     case SNDRV_CTL_ELEM_TYPE_INTEGER64: {
-        for (n = 0; n < ctl->info->count; n++)
+        for (n = 0; n < ctl->info->count; n++) {
             ev.value.integer64.value[n] = value;
+            value = right;
+        }
         break;
     }
+    case SNDRV_CTL_ELEM_TYPE_ENUMERATED:
+        max = ctl->info->value.enumerated.items;
+        return mixer_ctl_select(ctl, ctl->ename[value > max ? max : value]);
     default:
         errno = EINVAL;
         return -1;
     }
 
     return ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &ev);
+}
+
+int mixer_ctl_set_int(struct mixer_ctl *ctl, long long value)
+{
+    return mixer_ctl_set_int_double(ctl, value, value);
 }
 
 /*
@@ -565,114 +569,3 @@ int mixer_get_dB_range(struct mixer_ctl *ctl, long rangemin, long rangemax,
     return 0;
 }
 //add for incall volume end
-
-#ifdef SUPPORT_USB	
-
-struct mixer *mixer_open1(char *devPath)
-{
-    struct snd_ctl_elem_list elist;
-    struct snd_ctl_elem_info tmp;
-    struct snd_ctl_elem_id *eid = NULL;
-    struct mixer *mixer = NULL;
-    unsigned n, m;
-    int fd;
-    if(NULL == devPath)
-        return 0;
-    fd = open(devPath, O_RDWR);
-    if (fd < 0)
-        return 0;
-
-    memset(&elist, 0, sizeof(elist));
-    if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_LIST, &elist) < 0)
-        goto fail;
-
-    mixer = calloc(1, sizeof(*mixer));
-    if (!mixer)
-        goto fail;
-
-    mixer->ctl = calloc(elist.count, sizeof(struct mixer_ctl));
-    mixer->info = calloc(elist.count, sizeof(struct snd_ctl_elem_info));
-    if (!mixer->ctl || !mixer->info)
-        goto fail;
-
-    eid = calloc(elist.count, sizeof(struct snd_ctl_elem_id));
-    if (!eid)
-        goto fail;
-
-    mixer->count = elist.count;
-    mixer->fd = fd;
-    elist.space = mixer->count;
-    elist.pids = eid;
-    if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_LIST, &elist) < 0)
-        goto fail;
-
-    for (n = 0; n < mixer->count; n++) {
-        struct snd_ctl_elem_info *ei = mixer->info + n;
-        ei->id.numid = eid[n].numid;
-        if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_INFO, ei) < 0)
-            goto fail;
-        mixer->ctl[n].info = ei;
-        mixer->ctl[n].mixer = mixer;
-        if (ei->type == SNDRV_CTL_ELEM_TYPE_ENUMERATED) {
-            char **enames = calloc(ei->value.enumerated.items, sizeof(char*));
-            if (!enames)
-                goto fail;
-            mixer->ctl[n].ename = enames;
-            for (m = 0; m < ei->value.enumerated.items; m++) {
-                memset(&tmp, 0, sizeof(tmp));
-                tmp.id.numid = ei->id.numid;
-                tmp.value.enumerated.item = m;
-                if (ioctl(fd, SNDRV_CTL_IOCTL_ELEM_INFO, &tmp) < 0)
-                    goto fail;
-                enames[m] = strdup(tmp.value.enumerated.name);
-                if (!enames[m])
-                    goto fail;
-            }
-        }
-    }
-
-    free(eid);
-    return mixer;
-
-fail:
-    if (eid)
-        free(eid);
-    if (mixer)
-        mixer_close(mixer);
-    else if (fd >= 0)
-        close(fd);
-    return 0;
-}
-
-
-void mixer_enableDevicesVolume(void){
-    int i=0;
-    char devpath[30];
-    struct mixer *mxr=NULL;
-    struct mixer_ctl *mctl=NULL;
-    for(i=1; i<2; ++i){
-        snprintf(devpath, 30, "%s%d", SOUND_CTL_PREFIX, i);
-        ALOGV("%s:%s\n", __FUNCTION__, devpath);
-        if(access(devpath, 0) == -1)
-            continue;
-        mxr = mixer_open1(devpath);
-        if(NULL != mxr){
-            ALOGV("%s: open playback switch\n", __FUNCTION__);
-            mctl = mixer_get_control(mxr, "PCM Playback Switch", 0);
-			if(mctl == NULL)
-				mctl = mixer_get_control(mxr, "Speaker Playback Switch", 0);
-            if(NULL != mctl){
-                mixer_ctl_set(mctl, 1);
-            }
-
-			 mctl = mixer_get_control(mxr, "PCM Playback Volume", 0);
-			if(mctl == NULL)
-				mctl = mixer_get_control(mxr, "Speaker Playback Volume", 0);
-            if(NULL != mctl){
-                mixer_ctl_set(mctl, 100);
-            }
-            mixer_close(mxr);
-        }
-    }
-}
-#endif//SUPPORT_USB

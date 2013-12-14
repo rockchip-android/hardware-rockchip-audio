@@ -15,7 +15,7 @@
  */
 
 #define LOG_TAG "AudioPolicyManagerBase"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 
 //#define VERY_VERBOSE_LOGGING
 #ifdef VERY_VERBOSE_LOGGING
@@ -51,19 +51,10 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
                                                   const char *device_address)
 {
     SortedVector <audio_io_handle_t> outputs;
+    bool isInputParamsNeedChange = false;
 
     ALOGV("setDeviceConnectionState() device: %x, state %d, address %s", device, state, device_address);
-	if(device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET  && state){//usb-audio 
-		mHasUsbAudioConnected=has_usbaudio_speaker_mic("Playback");
-		if(mHasUsbAudioConnected){
-			ALOGD("usb audio is connect");
-		}else{
-			return BAD_VALUE;//not support usbspeaker
-		}
-	}else if(device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET  && !state){
-		mHasUsbAudioConnected = false;
-		ALOGD("usb audio is disconnect");
-	}
+
     // connect/disconnect only 1 device at a time
     if (!audio_is_output_device(device) && !audio_is_input_device(device)) return BAD_VALUE;
 
@@ -197,12 +188,18 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
                    device == AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET ||
                    device == AUDIO_DEVICE_OUT_BLUETOOTH_SCO_CARKIT) {
             device = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
-        } else if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL) {
-            device = AUDIO_DEVICE_IN_AUX_DIGITAL;
-        } else if (device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET){
-        	//now we support usb audio
-        	return NO_ERROR;
-		}else {
+        } else if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL && isCaptureRateChange) {
+            device = AUDIO_DEVICE_NONE;
+            isInputParamsNeedChange = true;
+        } else if (device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET ||
+                   device == AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET) {
+            if((state && has_USBAudio_Speaker_MIC(UA_Record_type)) ||
+               (!state && (mAvailableInputDevices & AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET))) {
+                ALOGV("USB Mic %s", state ? "connect" : "disconnect");
+                device = AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET;
+            } else
+                return NO_ERROR;
+        } else {
             return NO_ERROR;
         }
     }
@@ -234,7 +231,10 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
             ALOGE("setDeviceConnectionState() invalid state: %x", state);
             return BAD_VALUE;
         }
+    }
 
+    //Change input params
+    if (audio_is_input_device(device) || isInputParamsNeedChange) {
         audio_io_handle_t activeInput = getActiveInput();
         if (activeInput != 0) {
             AudioInputDescriptor *inputDesc = mInputs.valueFor(activeInput);
@@ -251,25 +251,69 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
                 isSetParam = true;
             }
 
-            if (isCaptureRateChange) {
-                if (device == AUDIO_DEVICE_IN_AUX_DIGITAL) {
-                    String8 command = mpClientInterface->getParameters(activeInput, String8(AudioParameter::keySamplingRate));
-                    AudioParameter getParam = AudioParameter(command);
-                    int inSamplingRate;
+            //set input Rate and Channel
+            String8 command = mpClientInterface->getParameters(activeInput, String8(AudioParameter::keySamplingRate));
+            AudioParameter getParam = AudioParameter(command);
+            int inSamplingRate;
+            int inChannels;
+            uint32_t usbCaptureSamplingRate = 48000;
+            uint32_t usbCaptureChannels = AudioSystem::CHANNEL_IN_STEREO;
+            uint32_t defaultCaptureSamplingRate = 44100;
+            uint32_t defaultCaptureChannels = AudioSystem::CHANNEL_IN_STEREO;
+            bool isHDMIIn = ((mAvailableOutputDevices & AUDIO_DEVICE_OUT_AUX_DIGITAL) != 0) ? true : false;
+            bool isUSBInputDevices = ((inputDesc->mDevice & ~AUDIO_DEVICE_BIT_IN & AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET) != 0) ? true : false;
+            bool isPrimaryInputDevices = (inputDesc->mDevice == AUDIO_DEVICE_IN_WIRED_HEADSET ||
+                    inputDesc->mDevice == AUDIO_DEVICE_IN_BUILTIN_MIC) != 0 ? true : false;
 
-                    if (getParam.getInt(String8(AudioParameter::keySamplingRate), inSamplingRate) == NO_ERROR) {
-                        if ((uint32_t)inSamplingRate != 8000 &&
-                            (inputDesc->mDevice == AUDIO_DEVICE_IN_WIRED_HEADSET || inputDesc->mDevice == AUDIO_DEVICE_IN_BUILTIN_MIC) &&
-                            (mAvailableInputDevices & ~AUDIO_DEVICE_BIT_IN & AUDIO_DEVICE_IN_AUX_DIGITAL)) {
-                            inputDesc->mSamplingRate = 8000;
-                            param.addInt(String8(AudioParameter::keySamplingRate), (int)inputDesc->mSamplingRate);
-	                        isSetParam = true;
-                        } else if ((uint32_t)inSamplingRate != 44100 &&
-                            !(mAvailableInputDevices & ~AUDIO_DEVICE_BIT_IN & AUDIO_DEVICE_IN_AUX_DIGITAL)) {
-                            inputDesc->mSamplingRate = 44100;
-                            param.addInt(String8(AudioParameter::keySamplingRate), (int)inputDesc->mSamplingRate);
-	                        isSetParam = true;
-                        }
+            if (isUSBInputDevices) {
+                usbCaptureSamplingRate = get_USBAudio_sampleRate(UA_Record_type, inputDesc->mReqSamplingRate);
+                usbCaptureChannels = get_USBAudio_Channels(UA_Record_type,
+                                                           (inputDesc->mChannelMask == AudioSystem::CHANNEL_IN_MONO) ? 1 : 2);
+                usbCaptureChannels = (usbCaptureChannels == 1) ? AudioSystem::CHANNEL_IN_MONO : AudioSystem::CHANNEL_IN_STEREO;
+
+                if (!usbCaptureSamplingRate)
+                    usbCaptureSamplingRate = defaultCaptureSamplingRate;
+                if (!usbCaptureChannels)
+                    usbCaptureChannels = defaultCaptureChannels;
+            }
+
+            if (getParam.getInt(String8(AudioParameter::keySamplingRate), inSamplingRate) == NO_ERROR) {
+                if (isUSBInputDevices) {//USB MIC rate
+                    if ((uint32_t)inSamplingRate != usbCaptureSamplingRate && usbCaptureSamplingRate != 0) {
+                        inputDesc->mSamplingRate = usbCaptureSamplingRate;
+                        param.addInt(String8(AudioParameter::keySamplingRate), (int)inputDesc->mSamplingRate);
+	                    isSetParam = true;
+                    }
+                } else if (isCaptureRateChange && isHDMIIn && isPrimaryInputDevices) {//rk616 and HDMI in
+                    if ((uint32_t)inSamplingRate != 8000) {
+                        inputDesc->mSamplingRate = 8000;
+                        param.addInt(String8(AudioParameter::keySamplingRate), (int)inputDesc->mSamplingRate);
+	                    isSetParam = true;
+                    }
+                } else {
+                    if ((uint32_t)inSamplingRate != defaultCaptureSamplingRate) {
+                        inputDesc->mSamplingRate = defaultCaptureSamplingRate;
+                        param.addInt(String8(AudioParameter::keySamplingRate), (int)inputDesc->mSamplingRate);
+	                    isSetParam = true;
+                    }
+                }
+            }
+
+            command = mpClientInterface->getParameters(activeInput, String8(AudioParameter::keyChannels));
+            getParam = AudioParameter(command);
+
+            if (getParam.getInt(String8(AudioParameter::keyChannels), inChannels) == NO_ERROR) {
+                if (isUSBInputDevices) {//USB MIC channels
+                    if ((uint32_t)inChannels != usbCaptureChannels && usbCaptureChannels != 0) {
+                        inputDesc->mChannelMask = usbCaptureChannels;
+                        param.addInt(String8(AudioParameter::keyChannels), (int)inputDesc->mChannelMask);
+	                    isSetParam = true;
+                    }
+                } else {
+                    if ((uint32_t)inChannels != defaultCaptureChannels) {
+                        inputDesc->mChannelMask = defaultCaptureChannels;
+                        param.addInt(String8(AudioParameter::keyChannels), (int)inputDesc->mChannelMask);
+	                    isSetParam = true;
                     }
                 }
             }
@@ -987,6 +1031,7 @@ audio_io_handle_t AudioPolicyManagerBase::getInput(int inputSource,
     inputDesc->mInputSource = inputSource;
     inputDesc->mDevice = device;
     inputDesc->mSamplingRate = samplingRate;
+    inputDesc->mReqSamplingRate = samplingRate;
     inputDesc->mFormat = (audio_format_t)format;
     inputDesc->mChannelMask = (audio_channel_mask_t)channelMask;
     inputDesc->mRefCount = 0;
@@ -1056,25 +1101,68 @@ status_t AudioPolicyManagerBase::startInput(audio_io_handle_t input)
 
     AudioParameter param = AudioParameter();
 
-    if (isCaptureRateChange) {
-        String8 command = mpClientInterface->getParameters(input, String8(AudioParameter::keySamplingRate));
-        AudioParameter getParam = AudioParameter(command);
-        int inSamplingRate;
+    //set input Rate and Channel
+    String8 command = mpClientInterface->getParameters(input, String8(AudioParameter::keySamplingRate));
+    AudioParameter getParam = AudioParameter(command);
+    int inSamplingRate;
+    int inChannels;
+    uint32_t usbCaptureSamplingRate = 48000;
+    uint32_t usbCaptureChannels = AudioSystem::CHANNEL_IN_STEREO;
+    uint32_t defaultCaptureSamplingRate = 44100;
+    uint32_t defaultCaptureChannels = AudioSystem::CHANNEL_IN_STEREO;
+    bool isHDMIIn = ((mAvailableOutputDevices & AUDIO_DEVICE_OUT_AUX_DIGITAL) != 0) ? true : false;
+    bool isUSBInputDevices = ((inputDesc->mDevice & ~AUDIO_DEVICE_BIT_IN & AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET) != 0) ? true : false;
+    bool isPrimaryInputDevices = (inputDesc->mDevice == AUDIO_DEVICE_IN_WIRED_HEADSET ||
+            inputDesc->mDevice == AUDIO_DEVICE_IN_BUILTIN_MIC) != 0 ? true : false;
 
-        if (getParam.getInt(String8(AudioParameter::keySamplingRate), inSamplingRate) == NO_ERROR) {
-            if ((uint32_t)inSamplingRate != 8000 &&
-                (inputDesc->mDevice == AUDIO_DEVICE_IN_WIRED_HEADSET ||
-                inputDesc->mDevice == AUDIO_DEVICE_IN_BUILTIN_MIC) &&
-                (mAvailableInputDevices & ~AUDIO_DEVICE_BIT_IN & AUDIO_DEVICE_IN_AUX_DIGITAL)) {
+    if (isUSBInputDevices) {
+        usbCaptureSamplingRate = get_USBAudio_sampleRate(UA_Record_type, inputDesc->mReqSamplingRate);
+        usbCaptureChannels = get_USBAudio_Channels(UA_Record_type,
+                                                   (inputDesc->mChannelMask == AudioSystem::CHANNEL_IN_MONO) ? 1 : 2);
+        usbCaptureChannels = (usbCaptureChannels == 1) ? AudioSystem::CHANNEL_IN_MONO : AudioSystem::CHANNEL_IN_STEREO;
+
+        if (!usbCaptureSamplingRate)
+            usbCaptureSamplingRate = defaultCaptureSamplingRate;
+        if (!usbCaptureChannels)
+            usbCaptureChannels = defaultCaptureChannels;
+    }
+
+    if (getParam.getInt(String8(AudioParameter::keySamplingRate), inSamplingRate) == NO_ERROR) {
+        if (isUSBInputDevices) {//USB MIC
+            if ((uint32_t)inSamplingRate != usbCaptureSamplingRate && usbCaptureSamplingRate != 0) {
+                inputDesc->mSamplingRate = usbCaptureSamplingRate;
+                param.addInt(String8(AudioParameter::keySamplingRate), (int)inputDesc->mSamplingRate);
+            }
+        } else if (isCaptureRateChange && isHDMIIn && isPrimaryInputDevices) {//rk616 and HDMI in
+            if ((uint32_t)inSamplingRate != 8000) {
                 inputDesc->mSamplingRate = 8000;
                 param.addInt(String8(AudioParameter::keySamplingRate), (int)inputDesc->mSamplingRate);
-            } else if ((uint32_t)inSamplingRate != 44100 &&
-                !(mAvailableInputDevices & ~AUDIO_DEVICE_BIT_IN & AUDIO_DEVICE_IN_AUX_DIGITAL)) {
-                inputDesc->mSamplingRate = 44100;
+            }
+        } else {
+            if ((uint32_t)inSamplingRate != defaultCaptureSamplingRate) {
+                inputDesc->mSamplingRate = defaultCaptureSamplingRate;
                 param.addInt(String8(AudioParameter::keySamplingRate), (int)inputDesc->mSamplingRate);
             }
         }
     }
+
+    command = mpClientInterface->getParameters(input, String8(AudioParameter::keyChannels));
+    getParam = AudioParameter(command);
+
+    if (getParam.getInt(String8(AudioParameter::keyChannels), inChannels) == NO_ERROR) {
+        if (isUSBInputDevices) {//USB MIC channels
+            if ((uint32_t)inChannels != usbCaptureChannels && usbCaptureChannels != 0) {
+                inputDesc->mChannelMask = usbCaptureChannels;
+                param.addInt(String8(AudioParameter::keyChannels), (int)inputDesc->mChannelMask);
+            }
+        } else {
+            if ((uint32_t)inChannels != defaultCaptureChannels) {
+                inputDesc->mChannelMask = defaultCaptureChannels;
+                param.addInt(String8(AudioParameter::keyChannels), (int)inputDesc->mChannelMask);
+            }
+        }
+    }
+
     param.addInt(String8(AudioParameter::keyRouting), (int)inputDesc->mDevice);
 
     int aliasSource = (inputDesc->mInputSource == AUDIO_SOURCE_HOTWORD) ?
@@ -1560,8 +1648,8 @@ AudioPolicyManagerBase::AudioPolicyManagerBase(AudioPolicyClientInterface *clien
     mPhoneState(AudioSystem::MODE_NORMAL),
     mLimitRingtoneVolume(false), mLastVoiceVolume(-1.0f),
     mTotalEffectsCpuLoad(0), mTotalEffectsMemory(0),
-    mA2dpSuspended(false), mHasA2dp(false), mHasUsb(false),mHasUsbAudioConnected(false),
-    mHasRemoteSubmix(false),isCaptureRateChange(false)
+    mA2dpSuspended(false), mHasA2dp(false), mHasUsb(false), mHasRemoteSubmix(false),
+    isCaptureRateChange(false)
 {
     mpClientInterface = clientInterface;
 
@@ -1660,22 +1748,31 @@ AudioPolicyManagerBase::AudioPolicyManagerBase(AudioPolicyClientInterface *clien
     }
 #endif //AUDIO_POLICY_TEST
 
-    char soundCardID[15] = "";
+    char soundCardID[20] = "";
     static FILE * fp;
+    size_t readSize;
 
     fp = fopen("/proc/asound/card0/id", "rt");
     if (!fp) {
         ALOGD("Open sound card0 id error!");
     } else {
-        fread(soundCardID, sizeof(char), sizeof(soundCardID), fp);
+        readSize = fread(soundCardID, sizeof(char), sizeof(soundCardID), fp);
         fclose(fp);
+
+        if (soundCardID[readSize - 1] == '\n')
+            soundCardID[readSize - 1] = '\0';
+
         if (strncmp("RKRK616", soundCardID, 7) == 0) {
             fp = fopen("/proc/asound/card1/id", "rt");
             if (!fp) {
                 ALOGD("Open sound card1 id error!");
             } else {
-                fread(soundCardID, sizeof(char), sizeof(soundCardID), fp);
+                readSize = fread(soundCardID, sizeof(char), sizeof(soundCardID), fp);
                 fclose(fp);
+
+                if (soundCardID[readSize - 1] == '\n')
+                    soundCardID[readSize - 1] = '\0';
+
                 if (strncmp("ROCKCHIPSPDIF", soundCardID, 13) == 0) {
                     ALOGD("sound card0 is RK616, sound card1 is ROCKCHIPSPDIF, set audio capture with 8KHz.");
                     isCaptureRateChange = true;
@@ -2712,36 +2809,6 @@ uint32_t AudioPolicyManagerBase::setOutputDevice(audio_io_handle_t output,
     ALOGV("setOutputDevice() changing device");
     // do the routing
     param.addInt(String8(AudioParameter::keyRouting), (int)device);
-	
-	if (device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET)
-	{
-		if(device != prevDevice)
-		{
-			uint32_t usbspeaker_sampleRate = get_usbaudio_cap("Playback","Rates");
-			if(usbspeaker_sampleRate == 0)
-				usbspeaker_sampleRate = UA_Playback_SampleRate;
-			if(usbspeaker_sampleRate != outputDesc->mSamplingRate)
-			{
-				param.addInt(String8(AudioParameter::keySamplingRate),(int)usbspeaker_sampleRate);
-				ALOGD("setOutputDevice,open usb speaker samplerate =%d",usbspeaker_sampleRate);
-			}
-		}
-	}
-	else
-	{
-		String8 command = mpClientInterface->getParameters(output, String8(AudioParameter::keySamplingRate));
-		AudioParameter getParam = AudioParameter(command);
-		int SamplingRate;
-		
-		if (getParam.getInt(String8(AudioParameter::keySamplingRate), SamplingRate) == NO_ERROR) 
-		{
-			if(SamplingRate != ((int)outputDesc->mSamplingRate))
-			{
-    			param.addInt(String8(AudioParameter::keySamplingRate),(int)outputDesc->mSamplingRate);
-				ALOGD("setOutputDevice,close usb speadker origin samplerate =%d now samplerate =%d ",SamplingRate,(int)outputDesc->mSamplingRate);
-			}
-		}
-	}
     mpClientInterface->setParameters(output, param.toString(), delayMs);
 
     if (device != AUDIO_DEVICE_NONE) {
@@ -2794,6 +2861,8 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
         if (mForceUse[AudioSystem::FOR_RECORD] == AudioSystem::FORCE_BT_SCO &&
             mAvailableInputDevices & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) {
             device = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
+        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET){
+            device = AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET;
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_WIRED_HEADSET) {
             device = AUDIO_DEVICE_IN_WIRED_HEADSET;
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BUILTIN_MIC) {
@@ -2801,7 +2870,9 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
         }
         break;
     case AUDIO_SOURCE_CAMCORDER:
-        if (mAvailableInputDevices & AUDIO_DEVICE_IN_BACK_MIC) {
+        if (mAvailableInputDevices & AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET) {
+            device = AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET;
+        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BACK_MIC) {
             device = AUDIO_DEVICE_IN_BACK_MIC;
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BUILTIN_MIC) {
             device = AUDIO_DEVICE_IN_BUILTIN_MIC;

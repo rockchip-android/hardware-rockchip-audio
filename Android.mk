@@ -11,6 +11,7 @@ LOCAL_SRC_FILES := \
     AudioHardware.cpp \
     audio_hw_hal.cpp\
     alsa_mixer.c\
+    alsa_route.c\
     alsa_pcm.c
 
 ifeq ($(BOARD_HAVE_BLUETOOTH),true)
@@ -29,7 +30,7 @@ LOCAL_STATIC_LIBRARIES := libmedia_helper \
 
 LOCAL_C_INCLUDES := \
     $(call include-path-for, speex)
-LOCAL_SHARED_LIBRARIES:= libc libcutils libutils libmedia libhardware_legacy
+LOCAL_SHARED_LIBRARIES:= libc libcutils libutils libmedia libhardware_legacy libspeexresampler
 include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES:= amix.c alsa_mixer.c
@@ -47,9 +48,10 @@ LOCAL_SRC_FILES := \
     AudioHardware.cpp \
     audio_hw_hal.cpp\
     alsa_mixer.c\
+    alsa_route.c\
     alsa_pcm.c
-LOCAL_CFLAGS += -DSUPPORT_USB
 
+LOCAL_CFLAGS += -DSUPPORT_USB
 LOCAL_MODULE := audio.usb.$(TARGET_BOARD_HARDWARE)
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_MODULE_TAGS := optional
@@ -58,7 +60,7 @@ LOCAL_STATIC_LIBRARIES := libmedia_helper \
 
 LOCAL_C_INCLUDES := \
     $(call include-path-for, speex)
-LOCAL_SHARED_LIBRARIES:= libc libcutils libutils libmedia libhardware_legacy
+LOCAL_SHARED_LIBRARIES:= libc libcutils libutils libmedia libhardware_legacy libspeexresampler
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)

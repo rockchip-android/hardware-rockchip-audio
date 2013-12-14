@@ -29,6 +29,7 @@
 
 #include <speex/speex.h>
 #include <speex/speex_preprocess.h>
+#include <speex/speex_resampler.h>
 extern "C" {
     struct pcm;
     struct mixer;
@@ -56,7 +57,7 @@ namespace android_audio_legacy {
 // Default audio input sample rate
 #define AUDIO_HW_IN_SAMPLERATE 44100
 // Default audio input channel mask
-#define AUDIO_HW_IN_CHANNELS (AudioSystem::CHANNEL_IN_MONO)
+#define AUDIO_HW_IN_CHANNELS (AudioSystem::CHANNEL_IN_STEREO)
 // Default audio input sample format
 #define AUDIO_HW_IN_FORMAT (AudioSystem::PCM_16_BIT)
 // Number of buffers in audio driver for input
@@ -77,6 +78,8 @@ namespace android_audio_legacy {
 //1:Enable the denoise funtion ;0: disable the denoise function
 
 #define SPEEX_DENOISE_ENABLE 1
+
+#define RESAMPLER_QUALITY SPEEX_RESAMPLER_QUALITY_DEFAULT
 
 
 class AudioHardware : public AudioHardwareBase
@@ -116,9 +119,10 @@ public:
         uint32_t sampleRate, int format, int channelCount);
 
             int  mode() { return mMode; }
-            const char *getOutputRouteFromDevice(uint32_t device);
-            const char *getInputRouteFromDevice(uint32_t device);
-            const char *getVoiceRouteFromDevice(uint32_t device);
+            unsigned getOutputRouteFromDevice(uint32_t device);
+            unsigned getInputRouteFromDevice(uint32_t device);
+            unsigned getVoiceRouteFromDevice(uint32_t device);
+            unsigned getRouteFromDevice(uint32_t device);
 
             status_t setIncallPath_l(uint32_t device);
 
@@ -131,9 +135,6 @@ public:
 
            struct pcm *openPcmOut_l();
            void closePcmOut_l();
-
-           struct mixer *openMixer_l();
-           void closeMixer_l();
 
             android::sp <AudioStreamOutALSA>  output() { return mOutput; }
 
@@ -148,7 +149,6 @@ private:
      android::SortedVector <  android::sp<AudioStreamInALSA> >   mInputs;
      android::Mutex           mLock;
     struct pcm*     mPcm;
-    struct mixer*   mMixer;
     uint32_t        mPcmOpenCnt;
     uint32_t        mMixerOpenCnt;
     bool            mInCallAudioMode;
@@ -224,7 +224,6 @@ private:
         android::Mutex mLock;
         AudioHardware* mHardware;
         struct pcm *mPcm;
-        struct mixer *mMixer;
         struct mixer_ctl *mRouteCtl;
         const char *next_route;
         bool mStandby;
@@ -261,6 +260,7 @@ private:
     class DownSampler {
     public:
         DownSampler(uint32_t outSampleRate,
+                  uint32_t inSampleRate,
                   uint32_t channelCount,
                   uint32_t frameCount,
                   BufferProvider* provider);
@@ -277,19 +277,11 @@ private:
         uint32_t mSampleRate;
         uint32_t mChannelCount;
         uint32_t mFrameCount;
-        int16_t *mInLeft;
-        int16_t *mInRight;
-        int16_t *mTmpLeft;
-        int16_t *mTmpRight;
-        int16_t *mTmp2Left;
-        int16_t *mTmp2Right;
-        int16_t *mOutLeft;
-        int16_t *mOutRight;
-        int mInInBuf;
-        int mInTmpBuf;
-        int mInTmp2Buf;
+        int16_t *mTmpOutBuf;
         int mOutBufPos;
         int mInOutBuf;
+        int mInInBuf;
+        SpeexResamplerState *mInResampler;   // handle on input speex resampler
     };
 
 
@@ -339,7 +331,6 @@ private:
          android::Mutex mLock;
         AudioHardware* mHardware;
         struct pcm *mPcm;
-        struct mixer *mMixer;
         struct mixer_ctl *mRouteCtl;
         const char *next_route;
         bool mStandby;

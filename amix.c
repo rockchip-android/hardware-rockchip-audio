@@ -46,7 +46,8 @@ int main(int argc, char **argv)
     struct mixer_ctl *ctl;
     int r;
 
-    mixer = mixer_open1("/dev/snd/controlC1");
+    mixer = mixer_open(2);
+
     if (!mixer)
         return -1;
 

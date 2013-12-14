@@ -15,7 +15,7 @@
 */
 
 #define LOG_TAG "alsa_pcm"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 #include <cutils/log.h>
 #include <cutils/config_utils.h>
 
@@ -40,12 +40,17 @@
 #define __user
 #include "asound.h"
 
-#define DEBUG 0
-
-/* alsa parameter manipulation cruft */
-#undef ALOGV
-#define ALOGV ALOGD
 #define PARAM_MAX SNDRV_PCM_HW_PARAM_LAST_INTERVAL
+
+int64_t last_read_time = 0;
+
+static int64_t systemTime()
+{
+    struct timespec t;
+    t.tv_sec = t.tv_nsec = 0;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return t.tv_sec*1000000000LL + t.tv_nsec;
+}
 
 static inline int param_is_mask(int p)
 {
@@ -189,17 +194,6 @@ static void param_dump(struct snd_pcm_hw_params *p) {}
 static void info_dump(struct snd_pcm_info *info) {}
 #endif
 
-#define PCM_ERROR_MAX 128
-
-struct pcm {
-    int fd;
-    unsigned flags;
-    int running:1;
-    int underruns;
-    unsigned buffer_size;
-    char error[PCM_ERROR_MAX];
-};
-
 unsigned pcm_buffer_size(struct pcm *pcm)
 {
     return pcm->buffer_size;
@@ -247,6 +241,21 @@ int pcm_write(struct pcm *pcm, void *data, unsigned count)
             return 0;
         }
         if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_WRITEI_FRAMES, &x)) {
+#ifdef SUPPORT_USB
+            //usb sound card out, so sleep for data and return no error.
+            unsigned int usleep_time = 0;
+            unsigned int frames = (pcm->flags & PCM_MONO) ? (count / 2) : (count / 4);
+
+            if ((pcm->flags & PCM_RATE_MASK) == PCM_8000HZ)
+                usleep_time = frames * 1000 * 1000 / 8000;
+            else if ((pcm->flags & PCM_RATE_MASK) == PCM_48000HZ)
+                usleep_time = frames * 1000 * 1000 / 48000;
+            else
+                usleep_time = frames * 1000 * 1000 / 44100;
+            usleep(usleep_time);
+
+            return 0;
+#endif
             pcm->running = 0;
             if (errno == EPIPE) {
                     /* we failed to make our window -- try to restart */
@@ -350,6 +359,7 @@ void channel_fixed(void * data, unsigned len, int chFlag)
 int pcm_read(struct pcm *pcm, void *data, unsigned count)
 {
     struct snd_xferi x;
+    int ret = 0;
 
     if (!(pcm->flags & PCM_IN))
         return -EINVAL;
@@ -367,6 +377,34 @@ int pcm_read(struct pcm *pcm, void *data, unsigned count)
             pcm->running = 1;
         }
         if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_READI_FRAMES, &x)) {
+//#ifdef SUPPORT_USB
+            if (((pcm->flags & PCM_CARD_MASK) >> PCM_CARD_SHIFT) == PCM_CARD2) {
+                //usb sound card out, so set data to 0, and sleep for data
+                int need_usleep_time;
+                unsigned int usleep_time = 0;
+                unsigned int frames = (pcm->flags & PCM_MONO) ? (count / 2) : (count / 4);
+
+                if ((pcm->flags & PCM_RATE_MASK) == PCM_8000HZ)
+                    usleep_time = frames * 1000 * 1000 / 8000;
+                else if ((pcm->flags & PCM_RATE_MASK) == PCM_48000HZ)
+                    usleep_time = frames * 1000 * 1000 / 48000;
+                else
+                    usleep_time = frames * 1000 * 1000 / 44100;
+
+                memset(data, 0, count);
+
+                if (last_read_time == 0)
+                    last_read_time = systemTime();
+
+                need_usleep_time = usleep_time - (systemTime() - last_read_time) / 1000;
+                if (need_usleep_time > 0)
+                    usleep(need_usleep_time);
+
+                last_read_time = systemTime();
+
+                return 0;
+            }
+//#endif
             pcm->running = 0;
             if (errno == EPIPE) {
                     /* we failed to make our window -- try to restart */
@@ -375,6 +413,7 @@ int pcm_read(struct pcm *pcm, void *data, unsigned count)
             }
             return oops(pcm, errno, "cannot read stream data");
         }
+        last_read_time = systemTime();
 //        ALOGV("read() got %d frames", x.frames);
 		if(!(pcm->flags & PCM_MONO))
 		{
@@ -418,15 +457,18 @@ int pcm_close(struct pcm *pcm)
 
 struct pcm *pcm_open(unsigned flags)
 {
-    const char *dname;
+    const char *dfmt = "/dev/snd/pcmC%uD%u%c";
+    char dname[sizeof(dfmt) + 20];
     struct pcm *pcm;
     struct snd_pcm_info info;
     struct snd_pcm_hw_params params;
     struct snd_pcm_sw_params sparams;
+    unsigned card;
+    unsigned device;
     unsigned period_sz;
     unsigned period_cnt;
 
-    ALOGV("pcm_open(0x%08x)",flags);
+    ALOGD("pcm_open(0x%08x)", flags);
 
     pcm = calloc(1, sizeof(struct pcm));
     if (!pcm)
@@ -434,52 +476,26 @@ struct pcm *pcm_open(unsigned flags)
 
 __open_again:
 
-    if (flags & PCM_IN) {
-		if(flags & PCM_CARD2){
-        	dname = "/dev/snd/pcmC2D0c";
-		}else if(flags & PCM_CARD1){
-			dname = "/dev/snd/pcmC1D0c";
-		}else{
-			dname = "/dev/snd/pcmC0D0c";
-		}
-		channalFlags = -1;
-		startCheckCount = 0;
-    } else {
-#ifdef SUPPORT_USB
-        dname = "/dev/snd/pcmC1D0p";
-#else
-        if (flags & PCM_CARD2){
-            dname = "/dev/snd/pcmC2D0p";
-			usleep(2000 * 1000);
-        }else if(flags & PCM_CARD1){
-			dname = "/dev/snd/pcmC1D0p";
-		}
-        else{
-            dname = "/dev/snd/pcmC0D0p";
-        }
-#endif
-    }
+    card = (flags & PCM_CARD_MASK) >> PCM_CARD_SHIFT;
+    device = (flags & PCM_DEVICE_MASK) >> PCM_DEVICE_SHIFT;
 
-    ALOGV("pcm_open() period sz multiplier %d",
-         ((flags & PCM_PERIOD_SZ_MASK) >> PCM_PERIOD_SZ_SHIFT) + 1);
-    period_sz = PCM_PERIOD_SZ_MIN * (((flags & PCM_PERIOD_SZ_MASK) >> PCM_PERIOD_SZ_SHIFT) + 1);
-    ALOGV("pcm_open() period cnt %d",
-         ((flags & PCM_PERIOD_CNT_MASK) >> PCM_PERIOD_CNT_SHIFT) + PCM_PERIOD_CNT_MIN);
-    period_cnt = ((flags & PCM_PERIOD_CNT_MASK) >> PCM_PERIOD_CNT_SHIFT) + PCM_PERIOD_CNT_MIN;
+    sprintf(dname, dfmt, card, device, flags & PCM_IN ? 'c' : 'p');
+
+    ALOGD("pcm_open() card %u, device %u, %s",
+        card, device, (flags & PCM_IN) ? "Capture" : "Playback");
 
     pcm->flags = flags;
-    pcm->fd = open(dname, O_RDWR);
+    pcm->fd = open(dname, O_RDWR|O_CLOEXEC);
     if (pcm->fd < 0) {
         oops(pcm, errno, "cannot open device '%s'", dname);
-#ifndef SUPPORT_USB
-        if (flags & PCM_CARD1) {
-            ALOGV("Open sound card1 for HDMI error, open sound card0");
-            flags &= ~PCM_CARD1;
+        if ((flags & PCM_CARD_MASK) == PCM_CARD1) {
+            ALOGD("Open sound card1 for HDMI error, open sound card0");
+            flags &= ~PCM_CARD_MASK;
             goto __open_again;
         }
-#endif
         return pcm;
     }
+
     while(pcm->fd == 0 || pcm->fd == 1 || pcm->fd == 2)
     {
         ALOGD("pcm_open old_fd=%d",pcm->fd);
@@ -488,11 +504,19 @@ __open_again:
         close(tmp_fd);
         ALOGD("pcm_open new_fd=%d",pcm->fd);
     }
+
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_INFO, &info)) {
         oops(pcm, errno, "cannot get info - %s", dname);
         goto fail;
     }
     info_dump(&info);
+
+    ALOGV("pcm_open() period sz multiplier %d",
+         ((flags & PCM_PERIOD_SZ_MASK) >> PCM_PERIOD_SZ_SHIFT) + 1);
+    period_sz = PCM_PERIOD_SZ_MIN * (((flags & PCM_PERIOD_SZ_MASK) >> PCM_PERIOD_SZ_SHIFT) + 1);
+    ALOGV("pcm_open() period cnt %d",
+         ((flags & PCM_PERIOD_CNT_MASK) >> PCM_PERIOD_CNT_SHIFT) + PCM_PERIOD_CNT_MIN);
+    period_cnt = ((flags & PCM_PERIOD_CNT_MASK) >> PCM_PERIOD_CNT_SHIFT) + PCM_PERIOD_CNT_MIN;
 
     ALOGV("pcm_open() period_cnt %d period_sz %d channels %d",
          period_cnt, period_sz, (flags & PCM_MONO) ? 1 : 2);
@@ -512,13 +536,13 @@ __open_again:
     param_set_int(&params, SNDRV_PCM_HW_PARAM_CHANNELS,
                   (flags & PCM_MONO) ? 1 : 2);
     param_set_int(&params, SNDRV_PCM_HW_PARAM_PERIODS, period_cnt);
-    if (flags & PCM_8000HZ) {
-        ALOGD("set audio 8KHz");
+    if ((flags & PCM_RATE_MASK) == PCM_8000HZ) {
+        ALOGD("set audio rate 8KHz");
         param_set_int(&params, SNDRV_PCM_HW_PARAM_RATE, 8000);
-    } else if (flags & PCM_48000HZ){
-    	ALOGD("set audio 48KHz");
-		param_set_int(&params,SNDRV_PCM_HW_PARAM_RATE,48000);
-	}else
+    } else if ((flags & PCM_RATE_MASK) == PCM_48000HZ) {
+        ALOGD("set audio rate 48KHz");
+        param_set_int(&params, SNDRV_PCM_HW_PARAM_RATE, 48000);
+    } else
         param_set_int(&params, SNDRV_PCM_HW_PARAM_RATE, 44100);
 
     if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_HW_PARAMS, &params)) {
