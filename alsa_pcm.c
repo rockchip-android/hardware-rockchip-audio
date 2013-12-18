@@ -452,6 +452,7 @@ int pcm_close(struct pcm *pcm)
     pcm->running = 0;
     pcm->buffer_size = 0;
     pcm->fd = -1;
+    free(pcm);
     return 0;
 }
 

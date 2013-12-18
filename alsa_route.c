@@ -81,7 +81,7 @@ int route_init(void)
 
     if (!route_table) {
         route_table = &default_config_table;
-        ALOGE("Can not get config table for sound card0 %s, so get default config table.", soundCardID);
+        ALOGD("Can not get config table for sound card0 %s, so get default config table.", soundCardID);
     }
 
     for (i = PCM_DEVICE0_PLAYBACK; i < PCM_MAX; i++)
@@ -95,11 +95,11 @@ void route_uninit(void)
     ALOGV("route_uninit()");
 
     if (mPcm[PCM_DEVICE0_PLAYBACK]) {
-        route_pcm_close(mPcm[PCM_DEVICE0_PLAYBACK]);
+        route_pcm_close(PLAYBACK_OFF_ROUTE);
     }
 
     if (mPcm[PCM_DEVICE0_CAPTURE]) {
-        route_pcm_close(mPcm[PCM_DEVICE0_CAPTURE]);
+        route_pcm_close(CAPTURE_OFF_ROUTE);
     }
 }
 
@@ -175,7 +175,7 @@ int route_set_voice_volume(const char *ctlName, float volume)
     unsigned int Nmax = 6, N = volume * 5 + 1;
     float e = 2.71828, dB_min, dB_max, dB_vol, dB_step, volFloat;
 
-    ALOGV("route_set_voice_volume() set incall voice volume to control %s", ctlName);
+    ALOGD("route_set_voice_volume() set incall voice volume %f to control %s", volume, ctlName);
 
     if (mixer_get_ctl_minmax(ctl, &vol_min, &vol_max) < 0) {
         ALOGE("mixer_get_dB_range() get control min max value fail");
@@ -442,9 +442,12 @@ struct pcm *route_pcm_open(unsigned route, unsigned int flags)
     flags |= PCM_DEVICE0;
 
     if (is_playback) {
-
-        if (mPcm[PCM_DEVICE0_PLAYBACK])
-            pcm_close(mPcm[PCM_DEVICE0_PLAYBACK]);
+        //close all route and pcm
+        if (mMixerPlayback) {
+            route_set_controls(INCALL_OFF_ROUTE);
+            route_set_controls(VOIP_OFF_ROUTE);
+        }
+        route_pcm_close(PLAYBACK_OFF_ROUTE);
 
         mPcm[PCM_DEVICE0_PLAYBACK] = pcm_open(flags);
 
@@ -452,7 +455,6 @@ struct pcm *route_pcm_open(unsigned route, unsigned int flags)
         if (((flags & PCM_CARD_MASK) == PCM_CARD0) &&
             (route_info->devices == DEVICES_0_1 ||
             route_info->devices == DEVICES_0_1_2)) {
-
             unsigned int open_flags = flags;
 
             open_flags &= ~PCM_DEVICE_MASK;
@@ -465,21 +467,12 @@ struct pcm *route_pcm_open(unsigned route, unsigned int flags)
 
             if (mPcm[PCM_DEVICE1_CAPTURE] == NULL)
                 mPcm[PCM_DEVICE1_CAPTURE] = pcm_open(open_flags);
-        } else { //Close playback and capture of device 1
-            if (mPcm[PCM_DEVICE1_PLAYBACK] != NULL)
-                pcm_close(mPcm[PCM_DEVICE1_PLAYBACK]);
-            if (mPcm[PCM_DEVICE1_CAPTURE] != NULL)
-                pcm_close(mPcm[PCM_DEVICE1_CAPTURE]);
-
-            mPcm[PCM_DEVICE1_PLAYBACK] = NULL;
-            mPcm[PCM_DEVICE1_CAPTURE] = NULL;
         }
 
         //Open playback and capture of device 2
         if (((flags & PCM_CARD_MASK) == PCM_CARD0) &&
             (route_info->devices == DEVICES_0_2 ||
             route_info->devices == DEVICES_0_1_2)) {
-
             unsigned int open_flags = flags;
 
             open_flags &= ~PCM_DEVICE_MASK;
@@ -492,67 +485,78 @@ struct pcm *route_pcm_open(unsigned route, unsigned int flags)
 
             if (mPcm[PCM_DEVICE2_CAPTURE] == NULL)
                 mPcm[PCM_DEVICE2_CAPTURE] = pcm_open(open_flags);
-        } else { //Close playback and capture of device 2
-            if (mPcm[PCM_DEVICE2_PLAYBACK] != NULL)
-                pcm_close(mPcm[PCM_DEVICE2_PLAYBACK]);
-            if (mPcm[PCM_DEVICE2_CAPTURE] != NULL)
-                pcm_close(mPcm[PCM_DEVICE2_CAPTURE]);
-
-            mPcm[PCM_DEVICE2_PLAYBACK] = NULL;
-            mPcm[PCM_DEVICE2_CAPTURE] = NULL;
         }
     } else {
+        route_pcm_close(CAPTURE_OFF_ROUTE);
 
-        if (mPcm[PCM_DEVICE0_CAPTURE])
-            pcm_close(mPcm[PCM_DEVICE0_CAPTURE]);
-
-        mPcm[PCM_DEVICE0_CAPTURE] = pcm_open(flags);
+        if (mPcm[PCM_DEVICE0_CAPTURE] == NULL)
+            mPcm[PCM_DEVICE0_CAPTURE] = pcm_open(flags);
     }
 
     //update mMixer
     if (is_playback) {
-        if (mMixerPlayback) {
-            mixer_close(mMixerPlayback);
-        }
-        mMixerPlayback = mixer_open(route_info->sound_card == 1 ? 0 : route_info->sound_card);
+        if (mMixerPlayback == NULL)
+            mMixerPlayback = mixer_open(route_info->sound_card == 1 ? 0 : route_info->sound_card);
     } else {
-        if (mMixerCapture) {
-            mixer_close(mMixerCapture);
-        }
-        mMixerCapture = mixer_open(route_info->sound_card == 1 ? 0 : route_info->sound_card);
+        if (mMixerCapture == NULL)
+            mMixerCapture = mixer_open(route_info->sound_card == 1 ? 0 : route_info->sound_card);
     }
+
+    //set controls
+    if (route_info->controls_count > 0)
+        route_set_controls(route);
 
     return is_playback ? mPcm[PCM_DEVICE0_PLAYBACK] : mPcm[PCM_DEVICE0_CAPTURE];
 }
 
-int route_pcm_close(struct pcm *pcm)
+int route_pcm_close(unsigned route)
 {
     unsigned i;
 
-    ALOGV("route_pcm_close()");
+    if (route != PLAYBACK_OFF_ROUTE &&
+        route != CAPTURE_OFF_ROUTE &&
+        route != INCALL_OFF_ROUTE &&
+        route != VOIP_OFF_ROUTE) {
+        ALOGE("route_pcm_close() is not a off route");
+        return 0;
+    }
 
-    if (pcm->flags & PCM_IN) {
-        if (mMixerCapture) {
-            mixer_close(mMixerCapture);
-            mMixerCapture = NULL;
-    	}
+    ALOGV("route_pcm_close() route %d", route);
 
-        pcm_close(pcm);
-        mPcm[PCM_DEVICE0_CAPTURE] = NULL;
-    } else {//close playback, we need to close device 1 and device 2
+    //set controls
+    if (is_playback_route(route) ? mMixerPlayback : mMixerCapture)
+        route_set_controls(route);
+
+    switch (route) {
+    case  PLAYBACK_OFF_ROUTE://close playback, we need to close device 1 and device 2
         if (mMixerPlayback) {
             mixer_close(mMixerPlayback);
             mMixerPlayback = NULL;
-    	}
+        }
+        if (mPcm[PCM_DEVICE0_PLAYBACK]) {
+            pcm_close(mPcm[PCM_DEVICE0_PLAYBACK]);
+            mPcm[PCM_DEVICE0_PLAYBACK] = NULL;
+        }
 
-        pcm_close(pcm);
-        mPcm[PCM_DEVICE0_PLAYBACK] = NULL;
         for (i = PCM_DEVICE1_PLAYBACK; i < PCM_MAX; i++) {
             if (mPcm[i]) {
                 pcm_close(mPcm[i]);
                 mPcm[i] = NULL;
             }
         }
+        break;
+    case CAPTURE_OFF_ROUTE:
+        if (mMixerCapture) {
+            mixer_close(mMixerCapture);
+            mMixerCapture = NULL;
+        }
+        if (mPcm[PCM_DEVICE0_CAPTURE]) {
+            pcm_close(mPcm[PCM_DEVICE0_CAPTURE]);
+            mPcm[PCM_DEVICE0_CAPTURE] = NULL;
+        }
+        break;
+    default:
+        break;
     }
     return 0;
 }

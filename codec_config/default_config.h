@@ -16,6 +16,10 @@ const struct config_control default_speaker_normal_controls[] = {
 
 const struct config_control default_speaker_incall_controls[] = {
     {
+        .ctl_name = "Playback Path",
+        .str_val = "SPK",
+    },
+    {
         .ctl_name = "Voice Call Path",
         .str_val = "SPK",
     },
@@ -40,10 +44,13 @@ const struct config_control default_earpiece_normal_controls[] = {
         .ctl_name = "Playback Path",
         .str_val = "RCV",
     },
-
 };
 
 const struct config_control default_earpiece_incall_controls[] = {
+    {
+        .ctl_name = "Playback Path",
+        .str_val = "SPK",
+    },
     {
         .ctl_name = "Voice Call Path",
         .str_val = "RCV",
@@ -72,6 +79,10 @@ const struct config_control default_headphone_normal_controls[] = {
 };
 
 const struct config_control default_headphone_incall_controls[] = {
+    {
+        .ctl_name = "Playback Path",
+        .str_val = "HP_NO_MIC",
+    },
     {
         .ctl_name = "Voice Call Path",
         .str_val = "HP_NO_MIC",
@@ -114,6 +125,10 @@ const struct config_control default_headset_normal_controls[] = {
 };
 
 const struct config_control default_headset_incall_controls[] = {
+    {
+        .ctl_name = "Playback Path",
+        .str_val = "HP",
+    },
     {
         .ctl_name = "Voice Call Path",
         .str_val = "HP",

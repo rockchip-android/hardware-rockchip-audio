@@ -88,7 +88,6 @@ AudioHardware::AudioHardware() :
     mMixerOpenCnt(0),
     mInCallAudioMode(false),
     mVoipAudioMode(false),
-    mIsInCallWithModem(false),
     mInputSource("Default"),
     mBluetoothNrec(true),
     mSecRilLibHandle(NULL),
@@ -98,15 +97,6 @@ AudioHardware::AudioHardware() :
 {
     loadRILD();
     mInit = true;
-
-    char mAPModem[PATH_MAX];
-
-	property_get("ro.ap_mdm", mAPModem, "0");
-
-    if (strncmp(mAPModem, "0", 1) > 0 && strncmp(mAPModem, "9", 1) <= 0) {
-        ALOGV("AudioHardware() AP with modem");
-        mIsInCallWithModem = true;
-    }
 
     TRACE_DRIVER_IN(DRV_MIXER_OPEN)
     route_init();
@@ -122,12 +112,8 @@ AudioHardware::~AudioHardware()
     closeOutputStream((android_audio_legacy::AudioStreamOut*)mOutput.get());
 
     if (mPcm) {
-        TRACE_DRIVER_IN(DRV_MIXER_SEL)
-        route_set_controls(PLAYBACK_OFF_ROUTE);
-        TRACE_DRIVER_OUT
-
         TRACE_DRIVER_IN(DRV_PCM_CLOSE)
-        route_pcm_close(mPcm);
+        route_pcm_close(PLAYBACK_OFF_ROUTE);
         TRACE_DRIVER_OUT
     }
 
@@ -319,11 +305,6 @@ void AudioHardware::closeInputStream(AudioStreamIn* in) {
 
 status_t AudioHardware::setMode(int mode)
 {
-    if (!mIsInCallWithModem) {
-        status_t status = AudioHardwareBase::setMode(mode);
-        return status;
-    }
-
     android::sp<AudioStreamOutALSA> spOut;
     android::sp<AudioStreamInALSA> spIn;
     status_t status;
@@ -333,8 +314,7 @@ status_t AudioHardware::setMode(int mode)
     setpriority(PRIO_PROCESS, 0, ANDROID_PRIORITY_URGENT_AUDIO);
 
     // Mutex acquisition order is always out -> in -> hw
-     android::AutoMutex lock(mLock);
-	ALOGI("AudioHardware::setMode 1");
+    android::AutoMutex lock(mLock);
 
     spOut = mOutput;
     while (spOut != 0) {
@@ -354,8 +334,6 @@ status_t AudioHardware::setMode(int mode)
             spOut.clear();
         }
     }
-    // spOut is not 0 here only if the output is active
-	ALOGI("AudioHardware::setMode 2");
 
     spIn = getActiveInput_l();
     while (spIn != 0) {
@@ -371,8 +349,6 @@ status_t AudioHardware::setMode(int mode)
         spIn->unlock();
         spIn = getActiveInput_l();
     }
-    // spIn is not 0 here only if the input is active
-	ALOGI("AudioHardware::setMode 3");
 
     setpriority(PRIO_PROCESS, 0, priority);
 
@@ -390,15 +366,12 @@ status_t AudioHardware::setMode(int mode)
         }
 
         //close voip before incall opening
-        if ((mMode == AudioSystem::MODE_NORMAL || mMode == AudioSystem::MODE_IN_CALL)
+        if ((mMode != AudioSystem::MODE_IN_COMMUNICATION)
             && mVoipAudioMode) {
             setInputSource_l(mInputSource);
             TRACE_DRIVER_IN(DRV_MIXER_SEL)
             route_set_controls(VOIP_OFF_ROUTE);//close voip
             TRACE_DRIVER_OUT
-
-            ALOGV("setMode() closePcmOut_l()");
-            closePcmOut_l();
 
             mVoipAudioMode = false;
         }
@@ -419,11 +392,11 @@ status_t AudioHardware::setMode(int mode)
             mInCallAudioMode = true;
         }
 
-        if (mMode == AudioSystem::MODE_NORMAL && mInCallAudioMode) {
+        if (mMode != AudioSystem::MODE_IN_CALL && mInCallAudioMode) {
             setInputSource_l(mInputSource);
 
             TRACE_DRIVER_IN(DRV_MIXER_SEL)
-            route_set_controls(INCALL_OFF_ROUTE);//close incall
+            route_pcm_close(INCALL_OFF_ROUTE);//close incall
             TRACE_DRIVER_OUT
 
             ALOGV("setMode() closePcmOut_l()");
@@ -433,14 +406,9 @@ status_t AudioHardware::setMode(int mode)
         }
 
         if (mMode == AudioSystem::MODE_IN_COMMUNICATION && !mVoipAudioMode) {
-            ALOGV("setMode() openPcmOut_l()");
-            openPcmOut_l();
             setInputSource_l(String8("Default"));
             if (mOutput != 0) {
-                ALOGV("open VOIP path");
-                TRACE_DRIVER_IN(DRV_MIXER_SEL)
-                route_set_controls(getRouteFromDevice(mOutput->device()));
-                TRACE_DRIVER_OUT
+                mOutput->doStandby_l();
             }
             mVoipAudioMode = true;
         }
@@ -582,11 +550,10 @@ status_t AudioHardware::setVoiceVolume(float volume)
                 ALOGW("Call volume setting error!!!0x%08x \n", device);
                 strcpy(ctlName, "Earpiece Playback Volume");
                 break;
-
-            TRACE_DRIVER_IN(DRV_MIXER_SEL)
-            route_set_voice_volume(ctlName, volume);
-            TRACE_DRIVER_OUT
         }
+        TRACE_DRIVER_IN(DRV_MIXER_SEL)
+        route_set_voice_volume(ctlName, volume);
+        TRACE_DRIVER_OUT
     }
 
     return NO_ERROR;
@@ -677,58 +644,12 @@ status_t AudioHardware::setIncallPath_l(uint32_t device)
 {
     ALOGV("setIncallPath_l: device %x", device);
 
-    // Setup sound path for CP clocking
-    if ((mSecRilLibHandle) &&
-        (connectRILDIfRequired() == OK)) {
-
-        if (mMode == AudioSystem::MODE_IN_CALL) {
-            ALOGD("### incall mode route (%d)", device);
-            AudioPath path;
-            switch(device){
-                case AudioSystem::DEVICE_OUT_EARPIECE:
-                    ALOGD("### incall mode earpiece route");
-                    path = SOUND_AUDIO_PATH_HANDSET;
-                    break;
-
-                case AudioSystem::DEVICE_OUT_SPEAKER:
-                    ALOGD("### incall mode speaker route");
-                    path = SOUND_AUDIO_PATH_SPEAKER;
-                    break;
-
-                case AudioSystem::DEVICE_OUT_BLUETOOTH_SCO:
-                case AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_HEADSET:
-                case AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_CARKIT:
-                    ALOGD("### incall mode bluetooth route %s NR", mBluetoothNrec ? "" : "NO");
-                    if (mBluetoothNrec) {
-                        path = SOUND_AUDIO_PATH_BLUETOOTH;
-                    } else {
-                        path = SOUND_AUDIO_PATH_BLUETOOTH_NO_NR;
-                    }
-                    break;
-
-                case AudioSystem::DEVICE_OUT_WIRED_HEADPHONE :
-                    ALOGD("### incall mode headphone route");
-                    path = SOUND_AUDIO_PATH_HEADPHONE;
-                    break;
-
-                case AudioSystem::DEVICE_OUT_WIRED_HEADSET :
-                    ALOGD("### incall mode headset route");
-                    path = SOUND_AUDIO_PATH_HEADSET;
-                    break;
-
-                default:
-                    ALOGW("### incall mode Error!! route = [%d]", device);
-                    path = SOUND_AUDIO_PATH_HANDSET;
-                    break;
-            }
-
-            setCallAudioPath(mRilClient, path);
-        }
-    }
-
     if (mMode == AudioSystem::MODE_IN_CALL) {
-        TRACE_DRIVER_IN(DRV_MIXER_SEL)
-        route_set_controls(getRouteFromDevice(mOutput->device()));
+        TRACE_DRIVER_IN(DRV_PCM_OPEN)
+        if (!mPcm)
+            openPcmOut_l();
+        else
+            mPcm = route_pcm_open(getRouteFromDevice(device), mPcm->flags);
         TRACE_DRIVER_OUT
     }
 
@@ -759,17 +680,10 @@ struct pcm *AudioHardware::openPcmOut_l()
         if (!pcm_ready(mPcm)) {
             ALOGE("openPcmOut_l() cannot open pcm_out driver: %s\n", pcm_error(mPcm));
             TRACE_DRIVER_IN(DRV_PCM_CLOSE)
-            route_pcm_close(mPcm);
+            route_pcm_close(PLAYBACK_OFF_ROUTE);
             TRACE_DRIVER_OUT
             mPcmOpenCnt--;
             mPcm = NULL;
-        } else {
-            if (mMode != AudioSystem::MODE_IN_CALL) {
-                ALOGV("write() wakeup setting playback route");
-                TRACE_DRIVER_IN(DRV_MIXER_SEL)
-                route_set_controls(getRouteFromDevice(mOutput->device()));
-                TRACE_DRIVER_OUT
-            }
         }
     }
     return mPcm;
@@ -785,12 +699,8 @@ void AudioHardware::closePcmOut_l()
 
     if (--mPcmOpenCnt == 0) {
         ALOGV("close_l() reset Playback Path to OFF");
-        TRACE_DRIVER_IN(DRV_MIXER_SEL)
-        route_set_controls(PLAYBACK_OFF_ROUTE);//close playback
-        TRACE_DRIVER_OUT
-
         TRACE_DRIVER_IN(DRV_PCM_CLOSE)
-        route_pcm_close(mPcm);
+        route_pcm_close(PLAYBACK_OFF_ROUTE);
         TRACE_DRIVER_OUT
         mPcm = NULL;
     }
@@ -798,7 +708,7 @@ void AudioHardware::closePcmOut_l()
 
 unsigned AudioHardware::getOutputRouteFromDevice(uint32_t device)
 {
-    if (mMode != AudioSystem::MODE_RINGTONE&& mMode != AudioSystem::MODE_NORMAL)
+    if (mMode != AudioSystem::MODE_RINGTONE && mMode != AudioSystem::MODE_NORMAL)
         return PLAYBACK_OFF_ROUTE;
 
     switch (device) {
@@ -957,7 +867,7 @@ static FILE * alsa_out_fp = NULL;
 #endif
 
 AudioHardware::AudioStreamOutALSA::AudioStreamOutALSA() :
-    mHardware(0), mPcm(0), mRouteCtl(0),
+    mHardware(0), mRouteCtl(0),
     mStandby(true), mDevices(0), mChannels(AUDIO_HW_OUT_CHANNELS),
     mSampleRate(AUDIO_HW_OUT_SAMPLERATE), mBufferSize(AUDIO_HW_OUT_PERIOD_BYTES),
     mDriverOp(DRV_NONE), mStandbyCnt(0)
@@ -1029,10 +939,10 @@ ssize_t AudioHardware::AudioStreamOutALSA::write(const void* buffer, size_t byte
 
     { // scope for the lock
 
-         android::AutoMutex lock(mLock);
+        android::AutoMutex lock(mLock);
 
         if (mStandby) {
-             android::AutoMutex hwLock(mHardware->lock());
+            android::AutoMutex hwLock(mHardware->lock());
 
             ALOGD("AudioHardware pcm playback is exiting standby.");
             acquire_wake_lock (PARTIAL_WAKE_LOCK, "AudioOutLock");
@@ -1067,7 +977,7 @@ ssize_t AudioHardware::AudioStreamOutALSA::write(const void* buffer, size_t byte
                 }
                 spIn->unlock();
             }*/
-            if (mPcm == NULL) {
+            if (mHardware->getPcm() == NULL) {
                 release_wake_lock("AudioOutLock");
                 goto Error;
             }
@@ -1078,7 +988,7 @@ ssize_t AudioHardware::AudioStreamOutALSA::write(const void* buffer, size_t byte
         }
 
         TRACE_DRIVER_IN(DRV_PCM_WRITE)
-        ret = pcm_write(mPcm,(void*) p, bytes);
+        ret = pcm_write(mHardware->getPcm(),(void*) p, bytes);
         TRACE_DRIVER_OUT
 
         if (ret == 0) {
@@ -1104,9 +1014,8 @@ status_t AudioHardware::AudioStreamOutALSA::standby()
      android::AutoMutex lock(mLock);
 
     { // scope for the AudioHardware lock
-         android::AutoMutex hwLock(mHardware->lock());
-        if (mHardware->mode() != AudioSystem::MODE_IN_CALL &&
-            mHardware->mode() != AudioSystem::MODE_IN_COMMUNICATION)
+        android::AutoMutex hwLock(mHardware->lock());
+        if (mHardware->mode() != AudioSystem::MODE_IN_CALL)
             doStandby_l();
     }
 
@@ -1128,17 +1037,16 @@ void AudioHardware::AudioStreamOutALSA::doStandby_l()
 
 void AudioHardware::AudioStreamOutALSA::close_l()
 {
-    if (mPcm) {
+    if (mHardware->getPcm()) {
         mHardware->closePcmOut_l();
-        mPcm = NULL;
     }
 }
 
 status_t AudioHardware::AudioStreamOutALSA::open_l()
 {
     ALOGV("open pcm_out driver");
-    mPcm = mHardware->openPcmOut_l();
-    if (mPcm == NULL) {
+    mHardware->openPcmOut_l();
+    if (mHardware->getPcm() == NULL) {
         return NO_INIT;
     }
     return NO_ERROR;
@@ -1158,8 +1066,6 @@ status_t AudioHardware::AudioStreamOutALSA::dump(int fd, const Vector<String16>&
     }
 
     snprintf(buffer, SIZE, "\t\tmHardware: %p\n", mHardware);
-    result.append(buffer);
-    snprintf(buffer, SIZE, "\t\tmPcm: %p\n", mPcm);
     result.append(buffer);
     snprintf(buffer, SIZE, "\t\tmRouteCtl: %p\n", mRouteCtl);
     result.append(buffer);
@@ -1201,18 +1107,13 @@ status_t AudioHardware::AudioStreamOutALSA::setParameters(const String8& keyValu
 
         if (param.getInt(String8(AudioParameter::keyRouting), value) == NO_ERROR)
         {
-			//for MID alsa ,not have a routing change.
-		    android::AutoMutex hwLock(mHardware->lock());
+            //for MID alsa ,not have a routing change.
+            android::AutoMutex hwLock(mHardware->lock());
 
             if (mDevices != (uint32_t)value && value != AUDIO_DEVICE_NONE) {
                 mDevices = (uint32_t)value;
                 if (mHardware->mode() == AudioSystem::MODE_IN_CALL) {
                     mHardware->setIncallPath_l(mDevices);
-                } else if (mHardware->mode() == AudioSystem::MODE_IN_COMMUNICATION) {
-                    ALOGV("setParameters() setting Voip Path");
-                    TRACE_DRIVER_IN(DRV_MIXER_SEL)
-                    route_set_controls(mHardware->getRouteFromDevice(mDevices));
-                    TRACE_DRIVER_OUT
                 } else
                     needStandby = true;
             }
@@ -1227,8 +1128,7 @@ status_t AudioHardware::AudioStreamOutALSA::setParameters(const String8& keyValu
                 mSampleRate = (uint32_t)value;
 
                 android::AutoMutex hwLock(mHardware->lock());
-                if (mHardware->mode() != AudioSystem::MODE_IN_CALL &&
-                    mHardware->mode() != AudioSystem::MODE_IN_COMMUNICATION) {
+                if (mHardware->mode() != AudioSystem::MODE_IN_CALL) {
                     needStandby = true;
                 }
             }
@@ -1598,11 +1498,10 @@ status_t AudioHardware::AudioStreamInALSA::standby()
 {
     if (mHardware == NULL) return NO_INIT;
 
-     android::AutoMutex lock(mLock);
+    android::AutoMutex lock(mLock);
 
     { // scope for AudioHardware lock
-         android::AutoMutex hwLock(mHardware->lock());
-
+        android::AutoMutex hwLock(mHardware->lock());
         doStandby_l();
     }
     return NO_ERROR;
@@ -1624,12 +1523,9 @@ void AudioHardware::AudioStreamInALSA::close_l()
 {
     if (mPcm) {
         ALOGV("close_l() reset Capture MIC Path to OFF");
-        TRACE_DRIVER_IN(DRV_MIXER_SEL)
-        route_set_controls(CAPTURE_OFF_ROUTE);
-        TRACE_DRIVER_OUT
 
         TRACE_DRIVER_IN(DRV_PCM_CLOSE)
-        route_pcm_close(mPcm);
+        route_pcm_close(CAPTURE_OFF_ROUTE);
         TRACE_DRIVER_OUT
         mPcm = NULL;
     }
@@ -1658,7 +1554,7 @@ status_t AudioHardware::AudioStreamInALSA::open_l()
     if (!pcm_ready(mPcm)) {
         ALOGE("cannot open pcm_in driver: %s\n", pcm_error(mPcm));
         TRACE_DRIVER_IN(DRV_PCM_CLOSE)
-        route_pcm_close(mPcm);
+        route_pcm_close(CAPTURE_OFF_ROUTE);
         TRACE_DRIVER_OUT
         mPcm = NULL;
         return NO_INIT;
@@ -1731,8 +1627,8 @@ status_t AudioHardware::AudioStreamInALSA::setParameters(const String8& keyValue
     if (mHardware == NULL) return NO_INIT;
 
     {
-         bool needStandby = false;
-         android::AutoMutex lock(mLock);
+        bool needStandby = false;
+        android::AutoMutex lock(mLock);
 
         if (param.get(String8(INPUT_SOURCE_KEY), source) == NO_ERROR) {
             android::AutoMutex hwLock(mHardware->lock());
@@ -1748,8 +1644,7 @@ status_t AudioHardware::AudioStreamInALSA::setParameters(const String8& keyValue
                 (value == 8000 || value == 44100 || value == 48000)) {
                 mInSampleRate = (uint32_t)value;
                 reconfig = true;
-                if (mHardware->mode() != AudioSystem::MODE_IN_CALL &&
-                    mHardware->mode() != AudioSystem::MODE_IN_COMMUNICATION) {
+                if (mHardware->mode() != AudioSystem::MODE_IN_CALL) {
                     needStandby = true;
                 }
             }
@@ -1762,8 +1657,7 @@ status_t AudioHardware::AudioStreamInALSA::setParameters(const String8& keyValue
                 (value == AudioSystem::CHANNEL_IN_STEREO || value == AudioSystem::CHANNEL_IN_MONO)) {
                 mChannels = (uint32_t)value;
                 reconfig = true;
-                if (mHardware->mode() != AudioSystem::MODE_IN_CALL &&
-                    mHardware->mode() != AudioSystem::MODE_IN_COMMUNICATION) {
+                if (mHardware->mode() != AudioSystem::MODE_IN_CALL) {
                     needStandby = true;
                 }
             }
@@ -1774,8 +1668,7 @@ status_t AudioHardware::AudioStreamInALSA::setParameters(const String8& keyValue
         {
             if (mDevices != (uint32_t)value && (uint32_t)value != AUDIO_DEVICE_NONE) {
                 mDevices = (uint32_t)value;
-                if (mHardware->mode() != AudioSystem::MODE_IN_CALL &&
-                    mHardware->mode() != AudioSystem::MODE_IN_COMMUNICATION) {
+                if (mHardware->mode() != AudioSystem::MODE_IN_CALL) {
                     needStandby = true;
                 }
             }
@@ -1786,33 +1679,34 @@ status_t AudioHardware::AudioStreamInALSA::setParameters(const String8& keyValue
             android::AutoMutex hwLock(mHardware->lock());
             doStandby_l();
         }
-    }
 
-    //close downsampler and open again to update params
-    if (reconfig) {
-        if (mDownSampler != NULL) {
-            delete mDownSampler;
-            mDownSampler = NULL;
-            if (mPcmIn != NULL) {
-                delete[] mPcmIn;
-                mPcmIn = NULL;
+        //close downsampler and open again to update params
+        if (reconfig) {
+            android::AutoMutex hwLock(mHardware->lock());
+            if (mDownSampler != NULL) {
+                delete mDownSampler;
+                mDownSampler = NULL;
+                if (mPcmIn != NULL) {
+                    delete[] mPcmIn;
+                    mPcmIn = NULL;
+                }
             }
-        }
 #if (SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE)
-        speex_preprocess_state_destroy(mSpeexState);
-	    if(mSpeexPcmIn) {
-              delete[] mSpeexPcmIn;
-              mSpeexPcmIn = NULL;
-	    }
+            speex_preprocess_state_destroy(mSpeexState);
+	      if(mSpeexPcmIn) {
+                delete[] mSpeexPcmIn;
+                mSpeexPcmIn = NULL;
+	      }
 #endif //SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE
 
-        int pFormat = AUDIO_HW_IN_FORMAT;
-        uint32_t pChannels = mChannels;
-        uint32_t pRate = mReqSampleRate;
+            int pFormat = AUDIO_HW_IN_FORMAT;
+            uint32_t pChannels = mChannels;
+            uint32_t pRate = mReqSampleRate;
 
-        if (set(mHardware, mDevices, &pFormat, &pChannels, &pRate, (AudioSystem::audio_in_acoustics)0) != NO_ERROR) {
-            ALOGE("AudioStreamInALSA; call set error!");
-			return BAD_VALUE;
+            if (set(mHardware, mDevices, &pFormat, &pChannels, &pRate, (AudioSystem::audio_in_acoustics)0) != NO_ERROR) {
+                ALOGE("AudioStreamInALSA; call set error!");
+                return BAD_VALUE;
+            }
         }
     }
 

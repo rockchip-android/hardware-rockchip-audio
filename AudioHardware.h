@@ -136,6 +136,8 @@ public:
            struct pcm *openPcmOut_l();
            void closePcmOut_l();
 
+           struct pcm *getPcm() { return mPcm; };
+
             android::sp <AudioStreamOutALSA>  output() { return mOutput; }
 
 protected:
@@ -153,7 +155,6 @@ private:
     uint32_t        mMixerOpenCnt;
     bool            mInCallAudioMode;
     bool            mVoipAudioMode;
-    bool            mIsInCallWithModem;
 
     String8         mInputSource;
     bool            mBluetoothNrec;
@@ -223,7 +224,6 @@ private:
 
         android::Mutex mLock;
         AudioHardware* mHardware;
-        struct pcm *mPcm;
         struct mixer_ctl *mRouteCtl;
         const char *next_route;
         bool mStandby;
