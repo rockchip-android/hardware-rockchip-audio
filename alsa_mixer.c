@@ -564,7 +564,7 @@ int mixer_get_dB_range(struct mixer_ctl *ctl, long rangemin, long rangemax,
     long min, max;
 
     if (ctl->tlv == NULL) {
-        ALOGE("mixer_get_dB_range() type of control %s is not a TLVT_DB", ctl->info->id.name);
+        ALOGE("mixer_get_dB_range() tlv of control %s is NULL", ctl->info->id.name);
         return -EINVAL;
     }
 

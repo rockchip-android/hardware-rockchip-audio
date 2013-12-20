@@ -63,6 +63,23 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
         return BAD_VALUE;
     }
 
+    //check output USB device
+    if (device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET ||
+        device == AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET) {
+        if((state && !has_USBAudio_Speaker_MIC(UA_Playback_type)) ||
+           (!state && !(mAvailableOutputDevices & AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET))) {
+
+            device = AUDIO_DEVICE_NONE;
+
+            //check input USB device
+            if((state && has_USBAudio_Speaker_MIC(UA_Record_type)) ||
+               (!state && (mAvailableInputDevices & AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET))) {
+                ALOGV("USB Mic %s", state ? "connect" : "disconnect");
+                device |= AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET;
+            }
+        }
+    }
+
     // handle output devices
     if (audio_is_output_device(device)) {
 
