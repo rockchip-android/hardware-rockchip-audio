@@ -44,9 +44,30 @@ int main(int argc, char **argv)
 {
     struct mixer *mixer;
     struct mixer_ctl *ctl;
-    int r;
+    int card = 0;
+    int r, i, c;
 
-    mixer = mixer_open(2);
+    for (i = 0; i < argc; i++) {
+        if ((strncmp(argv[i], "-c", sizeof(argv[i])) == 0) ||
+            (strncmp(argv[i], "-card", sizeof(argv[i])) == 0)) {
+
+            i++;
+            if (i >= argc) {
+                argc -= 1;
+                argv += 1;
+                break;
+            }
+
+            card = atoi(argv[i]);
+            argc -= 2;
+            argv += 2;
+            break;
+        }
+    }
+
+    printf("Card:%i\n", card);
+
+    mixer = mixer_open(card);
 
     if (!mixer)
         return -1;
@@ -61,19 +82,20 @@ int main(int argc, char **argv)
     argv += 2;
 
     if (!ctl) {
-        fprintf(stderr,"can't find control\n");
+        printf("can't find control\n");
         return -1;
     }
 
     if (argc) {
         if (isdigit(argv[0][0]))
-            r = mixer_ctl_set(ctl, atoi(argv[0]));
+            r = mixer_ctl_set_int(ctl, atoi(argv[0]));
         else
             r = mixer_ctl_select(ctl, argv[0]);
         if (r)
-            fprintf(stderr,"oops: %s\n", strerror(errno));
-    } else {
-        mixer_ctl_print(ctl);
+            printf("oops: %s\n", strerror(errno));
     }
+
+    mixer_ctl_print(ctl);
+
     return 0;
 }

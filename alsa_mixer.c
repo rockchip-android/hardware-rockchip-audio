@@ -47,6 +47,8 @@ char *volume_controls_name_table[] = {
     "Earpiece Playback Volume",
     "Speaker Playback Volume",
     "Headphone Playback Volume",
+    "PCM Playback Volume",
+    "Mic Capture Volume",
 };
 
 static const char *elem_iface_name(snd_ctl_elem_iface_t n)
@@ -281,7 +283,7 @@ struct mixer_ctl *mixer_get_control(struct mixer *mixer,
     for (n = 0; n < mixer->count; n++) {
         if (mixer->info[n].id.index == index) {
             if (!strcmp(name, (char*) mixer->info[n].id.name)) {
-				ALOGV("-->%s access %d",mixer->info[n].id.name,mixer->info[n].access);
+				ALOGV("mixer_get_control() %s access 0x%08x",mixer->info[n].id.name,mixer->info[n].access);
                 return mixer->ctl + n;
             }
         }

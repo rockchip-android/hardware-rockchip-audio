@@ -444,6 +444,8 @@ static struct pcm bad_pcm = {
 
 int pcm_close(struct pcm *pcm)
 {
+    ALOGD("pcm_close()");
+
     if (pcm == &bad_pcm)
         return 0;
 
