@@ -97,5 +97,7 @@ int main(int argc, char **argv)
 
     mixer_ctl_print(ctl);
 
+    mixer_close(mixer);
+
     return 0;
 }

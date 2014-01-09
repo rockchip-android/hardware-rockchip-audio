@@ -569,6 +569,12 @@ __open_again:
         goto fail;
     }
 
+    //Set prepare for device 1/2 of codec
+    if (device != 0 && card == 0) {
+        if (ioctl(pcm->fd, SNDRV_PCM_IOCTL_PREPARE))
+            ALOGE("pcm_open() cannot set prepare for card %d, device %d", card, device);
+    }
+
     pcm->buffer_size = period_cnt * period_sz;
     pcm->underruns = 0;
     return pcm;

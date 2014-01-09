@@ -295,7 +295,8 @@ int set_controls(struct mixer *mixer, const struct config_control *ctls, const u
     for (i = 0; i < ctls_count; i++) {
         ctl = mixer_get_control(mixer, ctls[i].ctl_name, 0);
         if (!ctl) {
-            ALOGE("set_controls() Can not get ctl : %s", ctls[i].ctl_name);
+            ALOGE_IF(route_table != &default_config_table, "set_controls() Can not get ctl : %s", ctls[i].ctl_name);
+            ALOGV_IF(route_table == &default_config_table, "set_controls() Can not get ctl : %s", ctls[i].ctl_name);
             return -EINVAL;
         }
 
