@@ -50,7 +50,7 @@ namespace android_audio_legacy {
 // Kernel pcm out buffer size in frames at 44.1kHz
 #define AUDIO_HW_OUT_PERIOD_MULT 16 // (16 * 64 = 1024 frames)
 #define AUDIO_HW_OUT_PERIOD_SZ (PCM_PERIOD_SZ_MIN * AUDIO_HW_OUT_PERIOD_MULT)
-#define AUDIO_HW_OUT_PERIOD_CNT 6
+#define AUDIO_HW_OUT_PERIOD_CNT 4
 // Default audio output buffer size in bytes
 #define AUDIO_HW_OUT_PERIOD_BYTES (AUDIO_HW_OUT_PERIOD_SZ * 2 * sizeof(int16_t))
 
