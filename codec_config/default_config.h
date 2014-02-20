@@ -34,6 +34,10 @@ const struct config_control default_speaker_ringtone_controls[] = {
 
 const struct config_control default_speaker_voip_controls[] = {
     {
+        .ctl_name = "Playback Path",
+        .str_val = "SPK",
+    },
+    {
         .ctl_name = "Voip Path",
         .str_val = "SPK",
     },
@@ -65,6 +69,10 @@ const struct config_control default_earpiece_ringtone_controls[] = {
 };
 
 const struct config_control default_earpiece_voip_controls[] = {
+    {
+        .ctl_name = "Playback Path",
+        .str_val = "RCV",
+    },
     {
         .ctl_name = "Voip Path",
         .str_val = "RCV",
@@ -112,6 +120,10 @@ const struct config_control default_speaker_headphone_ringtone_controls[] = {
 
 const struct config_control default_headphone_voip_controls[] = {
     {
+        .ctl_name = "Playback Path",
+        .str_val = "HP_NO_MIC",
+    },
+    {
         .ctl_name = "Voip Path",
         .str_val = "HP_NO_MIC",
     },
@@ -143,6 +155,10 @@ const struct config_control default_headset_ringtone_controls[] = {
 };
 
 const struct config_control default_headset_voip_controls[] = {
+    {
+        .ctl_name = "Playback Path",
+        .str_val = "HP",
+    },
     {
         .ctl_name = "Voip Path",
         .str_val = "HP",
