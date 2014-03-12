@@ -19,11 +19,11 @@ const struct config_control wm8960_speaker_normal_controls[] = {
 
     {
         .ctl_name = "Right Output Mixer Boost Bypass Switch",
-        .str_val = {off},
+        .int_val = {off},
     },
     {
         .ctl_name = "Left Output Mixer Boost Bypass Switch",
-        .str_val = {off},
+        .int_val = {off},
     },
     {
         .ctl_name = "Right Output Mixer RINPUT3 Switch",
@@ -70,11 +70,11 @@ const struct config_control wm8960_speaker_ringtone_controls[] = {
 
     {
         .ctl_name = "Right Output Mixer Boost Bypass Switch",
-        .str_val = {off},
+        .int_val = {off},
     },
     {
         .ctl_name = "Left Output Mixer Boost Bypass Switch",
-        .str_val = {off},
+        .int_val = {off},
     },
     {
         .ctl_name = "Right Output Mixer RINPUT3 Switch",
@@ -543,11 +543,11 @@ const struct config_control wm8960_playback_off_controls[] = {
 
     {
         .ctl_name = "Right Output Mixer Boost Bypass Switch",
-        .str_val = {off},
+        .int_val = {off},
     },
     {
         .ctl_name = "Left Output Mixer Boost Bypass Switch",
-        .str_val = {off},
+        .int_val = {off},
     },
     {
         .ctl_name = "Right Output Mixer RINPUT3 Switch",
