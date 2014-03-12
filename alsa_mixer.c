@@ -301,7 +301,7 @@ struct mixer_ctl *mixer_get_nth_control(struct mixer *mixer, unsigned n)
 void mixer_ctl_print(struct mixer_ctl *ctl)
 {
     struct snd_ctl_elem_value ev;
-    unsigned n;
+    unsigned n, m;
 
     memset(&ev, 0, sizeof(ev));
     ev.id.numid = ctl->info->id.numid;
@@ -317,11 +317,23 @@ void mixer_ctl_print(struct mixer_ctl *ctl)
     case SNDRV_CTL_ELEM_TYPE_INTEGER: {
         for (n = 0; n < ctl->info->count; n++)
             printf(" %ld", ev.value.integer.value[n]);
+
+        printf(ctl->info->value.integer.step ?
+               " { %ld-%ld, %ld }\n" : " { %ld-%ld }",
+               ctl->info->value.integer.min,
+               ctl->info->value.integer.max,
+               ctl->info->value.integer.step);
         break;
     }
     case SNDRV_CTL_ELEM_TYPE_INTEGER64:
         for (n = 0; n < ctl->info->count; n++)
             printf(" %lld", ev.value.integer64.value[n]);
+
+        printf(ctl->info->value.integer64.step ?
+               " { %lld-%lld, %lld }\n" : " { %lld-%lld }",
+               ctl->info->value.integer64.min,
+               ctl->info->value.integer64.max,
+               ctl->info->value.integer64.step);
         break;
     case SNDRV_CTL_ELEM_TYPE_ENUMERATED:
         for (n = 0; n < ctl->info->count; n++) {
@@ -329,6 +341,11 @@ void mixer_ctl_print(struct mixer_ctl *ctl)
             printf(" %d (%s)", v,
                    (v < ctl->info->value.enumerated.items) ? ctl->ename[v] : "???");
         }
+
+        printf(" { %s=0", ctl->ename[0]);
+        for (m = 1; m < ctl->info->value.enumerated.items; m++)
+            printf(", %s=%d", ctl->ename[m],m);
+        printf(" }");
         break;
     default:
         printf(" ???");
@@ -432,8 +449,8 @@ int mixer_ctl_select(struct mixer_ctl *ctl, const char *value)
 int mixer_ctl_set_int_double(struct mixer_ctl *ctl, long long left, long long right)
 {
     struct snd_ctl_elem_value ev;
-    unsigned n, max;
-    long long value = left;
+    unsigned n;
+    long long max, min, value = left;
 
     memset(&ev, 0, sizeof(ev));
     ev.id.numid = ctl->info->id.numid;
@@ -445,6 +462,16 @@ int mixer_ctl_set_int_double(struct mixer_ctl *ctl, long long left, long long ri
         }
         break;
     case SNDRV_CTL_ELEM_TYPE_INTEGER: {
+        max = ctl->info->value.integer.max;
+        min = ctl->info->value.integer.min;
+
+        left = left > max ? max : left;
+        left = left < min ? min : left;
+        right = right > max ? max : right;
+        right = right < min ? min : right;
+
+        value = left;
+
         for (n = 0; n < ctl->info->count; n++) {
             ev.value.integer.value[n] = (long)value;
             value = right;
@@ -452,6 +479,16 @@ int mixer_ctl_set_int_double(struct mixer_ctl *ctl, long long left, long long ri
         break;
     }
     case SNDRV_CTL_ELEM_TYPE_INTEGER64: {
+        max = ctl->info->value.integer64.max;
+        min = ctl->info->value.integer64.min;
+
+        left = left > max ? max : left;
+        left = left < min ? min : left;
+        right = right > max ? max : right;
+        right = right < min ? min : right;
+
+        value = left;
+
         for (n = 0; n < ctl->info->count; n++) {
             ev.value.integer64.value[n] = value;
             value = right;
