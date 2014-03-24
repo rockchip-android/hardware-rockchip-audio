@@ -40,6 +40,19 @@ struct alsa_sound_card_config sound_card_config_list[] = {
         .sound_card_name = "RK29WM8960",
         .route_table = &wm8960_config_table,
     },
+    {
+        .sound_card_name = "RKRT3224",
+        .route_table = &rt3224_config_table,
+    },
+    {
+        .sound_card_name = "RKRT3261",
+        .route_table = &rt3261_config_table,
+    },
+    {
+        .sound_card_name = "RKWM8960",
+        .route_table = &wm8960_config_table,
+    },
+
 };
 
 #endif //_CONFIG_LIST_H_
