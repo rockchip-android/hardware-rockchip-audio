@@ -1715,7 +1715,7 @@ AudioPolicyManagerBase::AudioPolicyManagerBase(AudioPolicyClientInterface *clien
     mA2dpDeviceAddress = String8("");
     mScoDeviceAddress = String8("");
     mUsbCardAndDevice = String8("");
-
+    mStreams[AudioSystem::MUSIC].mIndexCur.add(AUDIO_DEVICE_OUT_DEFAULT, mStreams[AudioSystem::MUSIC].mIndexMax);
     if (loadAudioPolicyConfig(AUDIO_POLICY_VENDOR_CONFIG_FILE) != NO_ERROR) {
         if (loadAudioPolicyConfig(AUDIO_POLICY_CONFIG_FILE) != NO_ERROR) {
             ALOGE("could not load audio policy configuration file, setting defaults");
@@ -2866,7 +2866,6 @@ uint32_t AudioPolicyManagerBase::setOutputDevice(audio_io_handle_t output,
     // do the routing
     param.addInt(String8(AudioParameter::keyRouting), (int)device);
     mpClientInterface->setParameters(output, param.toString(), delayMs);
-    mStreams[AudioSystem::MUSIC].mIndexCur.add(AUDIO_DEVICE_OUT_DEFAULT, mStreams[AudioSystem::MUSIC].mIndexMax);
     if (device != AUDIO_DEVICE_NONE) {
         //If is incall state, it need update incall voice volume.
         if (mPhoneState == AudioSystem::MODE_IN_CALL)
