@@ -356,27 +356,27 @@ const struct config_control rt5616_bluetooth_voip_controls[] = {
 const struct config_control rt5616_main_mic_capture_controls[] = {
     {
         .ctl_name = "RECMIXR INR1 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "RECMIXR BST1 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "RECMIXR BST2 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "RECMIXL INL1 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "RECMIXL BST1 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "RECMIXL BST2 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "ADC Capture Switch",
@@ -388,31 +388,87 @@ const struct config_control rt5616_main_mic_capture_controls[] = {
     },
     {
         .ctl_name = "IN2 Mode Control",
-        .int_val = {1},
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "IN2 Boost",
+        .int_val = {0},
     },
     {
         .ctl_name = "ADC Capture Volume",
-        .int_val = {120,120},
+        .int_val = {40,40},
     },
     {
         .ctl_name = "ADC Boost Gain",
         .int_val = {3,3},
     },
     {
-        .ctl_name = "IN Capture Volume",
-        .int_val = {31,31},
+        .ctl_name = "RECMIXR BST2 Switch",
+        .int_val = {on},
     },
     {
-        .ctl_name = "RECMIXR INR1 Switch",
-        .int_val = {on, on},
-    },
-    {
-        .ctl_name = "RECMIXL INL1 Switch",
-        .int_val = {on, on},
+        .ctl_name = "RECMIXL BST2 Switch",
+        .int_val = {on},
     },
 };
 
 const struct config_control rt5616_hands_free_mic_capture_controls[] = {
+    {
+        .ctl_name = "RECMIXR INR1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "RECMIXR BST1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "RECMIXR BST2 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "RECMIXL INL1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "RECMIXL BST1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "RECMIXL BST2 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "ADC Capture Switch",
+        .int_val = {on,on},
+    },
+   {
+        .ctl_name = "Stereo1 ADC MIXR ADC1 Switch",
+        .int_val = {on, on},
+    },
+    {
+        .ctl_name = "IN1 Mode Control",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "IN1 Boost",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "ADC Capture Volume",
+        .int_val = {40,40},
+    },
+    {
+        .ctl_name = "ADC Boost Gain",
+        .int_val = {1,1},
+    },
+    {
+        .ctl_name = "RECMIXR BST1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "RECMIXL BST1 Switch",
+        .int_val = {on},
+    },
  
 };
 
@@ -558,27 +614,27 @@ const struct config_control rt5616_playback_off_controls[] = {
 const struct config_control rt5616_capture_off_controls[] = {
     {
         .ctl_name = "RECMIXR INR1 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "RECMIXR BST1 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "RECMIXR BST2 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "RECMIXL INL1 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "RECMIXL BST1 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "RECMIXL BST2 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "ADC Capture Switch",
@@ -589,8 +645,20 @@ const struct config_control rt5616_capture_off_controls[] = {
         .int_val = {0, 0},
     },
     {
+        .ctl_name = "IN1 Mode Control",
+        .int_val = {0},
+    },
+    {
         .ctl_name = "IN2 Mode Control",
-        .int_val = {1},
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "IN1 Boost",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "IN2 Boost",
+        .int_val = {0},
     },
     {
         .ctl_name = "ADC Capture Volume",
@@ -606,11 +674,11 @@ const struct config_control rt5616_capture_off_controls[] = {
     },
     {
         .ctl_name = "RECMIXR INR1 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
     {
         .ctl_name = "RECMIXL INL1 Switch",
-        .int_val = {0, 0},
+        .int_val = {0},
     },
 };
 
