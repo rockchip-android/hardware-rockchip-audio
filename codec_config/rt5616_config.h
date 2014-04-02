@@ -326,7 +326,138 @@ const struct config_control rt5616_headphone_voip_controls[] = {
 };
 
 const struct config_control rt5616_headset_normal_controls[] = {
- 
+    {
+        .ctl_name = "SPK GPIO Control",
+        .str_val = "Low",
+    },
+    {
+        .ctl_name = "OUT Playback Switch",
+        .int_val = {off, off},
+    },
+    {
+        .ctl_name = "OUT Playback Volume",
+        .int_val = {0, 0},
+    },
+    {
+        .ctl_name = "HP Playback Switch",
+        .int_val = {0, 0},
+    },
+    {
+        .ctl_name = "HP Playback Volume",
+        .int_val = {0, 0},
+    },
+    {
+        .ctl_name = "DAC1 Playback Volume",
+        .int_val = {0, 0},
+    },
+    {
+        .ctl_name = "OUT Channel Switch",
+        .int_val = {off, off},
+    },
+    {
+        .ctl_name = "LOUT MIX DAC L1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "LOUT MIX DAC R1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "LOUT MIX OUTVOL L Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "LOUT MIX OUTVOL R Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "HPO MIX DAC1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPO MIX HPVOL Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "OUT MIXR BST2 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "OUT MIXR BST1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "OUT MIXR INR1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "OUT MIXR REC MIXR Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "OUT MIXR DAC R1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "OUT MIXL BST2 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "OUT MIXL BST1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "OUT MIXL INL1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "OUT MIXL REC MIXL Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "OUT MIXL DAC L1 Switch",
+        .int_val = {0},
+    },   
+    {
+        .ctl_name = "Stereo DAC MIXR DAC R1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "Stereo DAC MIXR DAC L1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "Stereo DAC MIXL DAC R1 Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "Stereo DAC MIXL DAC L1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "DAC MIXR Stereo ADC Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "DAC MIXR INF1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "DAC MIXL Stereo ADC Switch",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "DAC MIXL INF1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "DAC1 Playback Volume",
+        .int_val = {171, 171},
+    },
+    {
+        .ctl_name = "HP Playback Volume",
+        .int_val = {39, 39},
+   },  
 };
 
 const struct config_control rt5616_headset_incall_controls[] = {
