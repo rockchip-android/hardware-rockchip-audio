@@ -387,7 +387,7 @@ status_t AudioHardware::setMode(int mode)
             ALOGV("setMode() openPcmOut_l()");
             openPcmOut_l();
             setInputSource_l(String8("Default"));
-            if (mOutput != 0)
+            if (mOutput != 0 && AudioSystem::popCount(mOutput->device()) == 1)
                 setIncallPath_l(mOutput->device());
             mInCallAudioMode = true;
         }
@@ -746,32 +746,31 @@ unsigned AudioHardware::getVoiceRouteFromDevice(uint32_t device)
     if (mMode != AudioSystem::MODE_IN_CALL && mMode != AudioSystem::MODE_IN_COMMUNICATION)
         return INCALL_OFF_ROUTE;
 
-    switch (device) {
-    case AudioSystem::DEVICE_OUT_EARPIECE:
-        if (mMode == AudioSystem::MODE_IN_CALL) return EARPIECE_INCALL_ROUTE;
-        else return EARPIECE_VOIP_ROUTE;
-    case AudioSystem::DEVICE_OUT_SPEAKER:
-        if (mMode == AudioSystem::MODE_IN_CALL) return SPEAKER_INCALL_ROUTE;
-        else return SPEAKER_VOIP_ROUTE;
-    case AudioSystem::DEVICE_OUT_WIRED_HEADPHONE:
-        if (mMode == AudioSystem::MODE_IN_CALL) return HEADPHONE_INCALL_ROUTE;
-        else return HEADPHONE_VOIP_ROUTE;
-    case AudioSystem::DEVICE_OUT_WIRED_HEADSET:
-        if (mMode == AudioSystem::MODE_IN_CALL) return HEADSET_INCALL_ROUTE;
-        else return HEADSET_VOIP_ROUTE;
-    case AudioSystem::DEVICE_OUT_BLUETOOTH_SCO:
-    case AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_HEADSET:
-    case AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_CARKIT:
+    if (device & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO ||
+        device & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_HEADSET ||
+        device & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_CARKIT) {
         if (mMode == AudioSystem::MODE_IN_CALL) return BLUETOOTH_INCALL_ROUTE;
         else return BLUETOOTH_VOIP_ROUTE;
-    case AudioSystem::DEVICE_OUT_AUX_DIGITAL:
-        if (mMode == AudioSystem::MODE_IN_CALL) return EARPIECE_INCALL_ROUTE;
-        else return HDMI_NORMAL_ROUTE;
-    case AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET:
-    case AudioSystem::DEVICE_OUT_DGTL_DOCK_HEADSET:
+    } else if (device & AudioSystem::DEVICE_OUT_WIRED_HEADPHONE) {
+        if (mMode == AudioSystem::MODE_IN_CALL) return HEADPHONE_INCALL_ROUTE;
+        else return HEADPHONE_VOIP_ROUTE;
+    } else if (device & AudioSystem::DEVICE_OUT_WIRED_HEADSET) {
+        if (mMode == AudioSystem::MODE_IN_CALL) return HEADSET_INCALL_ROUTE;
+        else return HEADSET_VOIP_ROUTE;
+    } else if (device & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET ||
+        device & AudioSystem::DEVICE_OUT_DGTL_DOCK_HEADSET) {
         if (mMode == AudioSystem::MODE_IN_CALL) return EARPIECE_INCALL_ROUTE;
         else return USB_NORMAL_ROUTE;
-    default:
+    } else if (device & AudioSystem::DEVICE_OUT_AUX_DIGITAL) {
+        if (mMode == AudioSystem::MODE_IN_CALL) return EARPIECE_INCALL_ROUTE;
+        else return HDMI_NORMAL_ROUTE;
+    } else if (device & AudioSystem::DEVICE_OUT_EARPIECE) {
+        if (mMode == AudioSystem::MODE_IN_CALL) return EARPIECE_INCALL_ROUTE;
+        else return EARPIECE_VOIP_ROUTE;
+    } else if (device & AudioSystem::DEVICE_OUT_SPEAKER) {
+        if (mMode == AudioSystem::MODE_IN_CALL) return SPEAKER_INCALL_ROUTE;
+        else return SPEAKER_VOIP_ROUTE;
+    } else {
         if (mMode == AudioSystem::MODE_IN_CALL) return INCALL_OFF_ROUTE;
         else return VOIP_OFF_ROUTE;
     }

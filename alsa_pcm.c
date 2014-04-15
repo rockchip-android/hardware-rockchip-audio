@@ -444,7 +444,10 @@ static struct pcm bad_pcm = {
 
 int pcm_close(struct pcm *pcm)
 {
-    ALOGD("pcm_close()");
+    ALOGD("pcm_close() card %u, device %u, %s",
+        (pcm->flags & PCM_CARD_MASK) >> PCM_CARD_SHIFT,
+        (pcm->flags & PCM_DEVICE_MASK) >> PCM_DEVICE_SHIFT,
+        (pcm->flags & PCM_IN) ? "Capture" : "Playback");
 
     if (pcm == &bad_pcm)
         return 0;

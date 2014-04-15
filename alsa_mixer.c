@@ -225,15 +225,73 @@ fail:
     return 0;
 }
 
+void mixer_ctl_print(struct mixer_ctl *ctl)
+{
+    struct snd_ctl_elem_value ev;
+    struct snd_ctl_elem_info *ei = ctl->info;
+    unsigned m;
+
+    memset(&ev, 0, sizeof(ev));
+    ev.id.numid = ctl->info->id.numid;
+    if (ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_READ, &ev))
+        return;
+    printf("%s:", ctl->info->id.name);
+
+    switch (ei->type) {
+    case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
+        for (m = 0; m < ei->count; m++)
+            printf(" %s", ev.value.integer.value[m] ? "ON" : "OFF");
+
+        printf(" { OFF=0, ON=1 }");
+        break;
+    case SNDRV_CTL_ELEM_TYPE_INTEGER:
+        for (m = 0; m < ei->count; m++)
+            printf(" %ld", ev.value.integer.value[m]);
+
+        printf(ei->value.integer.step ?
+               " { %ld-%ld, %ld }\n" : " { %ld-%ld }",
+               ei->value.integer.min,
+               ei->value.integer.max,
+               ei->value.integer.step);
+        break;
+    case SNDRV_CTL_ELEM_TYPE_INTEGER64:
+        for (m = 0; m < ei->count; m++)
+            printf(" %lld", ev.value.integer64.value[m]);
+
+        printf(ei->value.integer64.step ?
+               " { %lld-%lld, %lld }\n" : " { %lld-%lld }",
+               ei->value.integer64.min,
+               ei->value.integer64.max,
+               ei->value.integer64.step);
+        break;
+    case SNDRV_CTL_ELEM_TYPE_ENUMERATED: {
+        for (m = 0; m < ei->count; m++) {
+            unsigned v = ev.value.enumerated.item[m];
+            printf(" (%d %s)", v,
+                  (v < ei->value.enumerated.items) ? ctl->ename[v] : "???");
+        }
+
+        printf(" { %s=0", ctl->ename[0]);
+        for (m = 1; m < ei->value.enumerated.items; m++)
+            printf(", %s=%d", ctl->ename[m],m);
+        printf(" }");
+        break;
+    }
+    default:
+        printf(" ???");
+    }
+    printf("\n");
+}
+
 void mixer_dump(struct mixer *mixer)
 {
-    unsigned n, m;
+    unsigned n;
 
     printf("  id iface dev sub idx num perms     type   name\n");
     for (n = 0; n < mixer->count; n++) {
         struct snd_ctl_elem_info *ei = mixer->info + n;
 
-        printf("%4d %5s %3d %3d %3d %3d %c%c%c%c%c%c%c%c%c %-6s %s",
+        printf("%4d %5s %3d %3d %3d %3d %c%c%c%c%c%c%c%c%c %-6s ",
                ei->id.numid, elem_iface_name(ei->id.iface),
                ei->id.device, ei->id.subdevice, ei->id.index,
                ei->count,
@@ -246,33 +304,9 @@ void mixer_dump(struct mixer *mixer)
                (ei->access & SNDRV_CTL_ELEM_ACCESS_TLV_COMMAND) ? 'C' : ' ',
                (ei->access & SNDRV_CTL_ELEM_ACCESS_INACTIVE) ? 'I' : ' ',
                (ei->access & SNDRV_CTL_ELEM_ACCESS_LOCK) ? 'L' : ' ',
-               elem_type_name(ei->type),
-               ei->id.name);
-        switch (ei->type) {
-        case SNDRV_CTL_ELEM_TYPE_INTEGER:
-            printf(ei->value.integer.step ?
-                   " { %ld-%ld, %ld }\n" : " { %ld-%ld }",
-                   ei->value.integer.min,
-                   ei->value.integer.max,
-                   ei->value.integer.step);
-            break;
-        case SNDRV_CTL_ELEM_TYPE_INTEGER64:
-            printf(ei->value.integer64.step ?
-                   " { %lld-%lld, %lld }\n" : " { %lld-%lld }",
-                   ei->value.integer64.min,
-                   ei->value.integer64.max,
-                   ei->value.integer64.step);
-            break;
-        case SNDRV_CTL_ELEM_TYPE_ENUMERATED: {
-            unsigned m;
-            printf(" { %s=0", mixer->ctl[n].ename[0]);
-            for (m = 1; m < ei->value.enumerated.items; m++)
-                printf(", %s=%d", mixer->ctl[n].ename[m],m);
-            printf(" }");
-            break;
-        }
-        }
-        printf("\n");
+               elem_type_name(ei->type));
+
+        mixer_ctl_print(mixer->ctl + n);
     }
 }
 
@@ -296,61 +330,6 @@ struct mixer_ctl *mixer_get_nth_control(struct mixer *mixer, unsigned n)
     if (n < mixer->count)
         return mixer->ctl + n;
     return 0;
-}
-
-void mixer_ctl_print(struct mixer_ctl *ctl)
-{
-    struct snd_ctl_elem_value ev;
-    unsigned n, m;
-
-    memset(&ev, 0, sizeof(ev));
-    ev.id.numid = ctl->info->id.numid;
-    if (ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_READ, &ev))
-        return;
-    printf("%s:", ctl->info->id.name);
-
-    switch (ctl->info->type) {
-    case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
-        for (n = 0; n < ctl->info->count; n++)
-            printf(" %s", ev.value.integer.value[n] ? "ON" : "OFF");
-        break;
-    case SNDRV_CTL_ELEM_TYPE_INTEGER: {
-        for (n = 0; n < ctl->info->count; n++)
-            printf(" %ld", ev.value.integer.value[n]);
-
-        printf(ctl->info->value.integer.step ?
-               " { %ld-%ld, %ld }\n" : " { %ld-%ld }",
-               ctl->info->value.integer.min,
-               ctl->info->value.integer.max,
-               ctl->info->value.integer.step);
-        break;
-    }
-    case SNDRV_CTL_ELEM_TYPE_INTEGER64:
-        for (n = 0; n < ctl->info->count; n++)
-            printf(" %lld", ev.value.integer64.value[n]);
-
-        printf(ctl->info->value.integer64.step ?
-               " { %lld-%lld, %lld }\n" : " { %lld-%lld }",
-               ctl->info->value.integer64.min,
-               ctl->info->value.integer64.max,
-               ctl->info->value.integer64.step);
-        break;
-    case SNDRV_CTL_ELEM_TYPE_ENUMERATED:
-        for (n = 0; n < ctl->info->count; n++) {
-            unsigned v = ev.value.enumerated.item[n];
-            printf(" %d (%s)", v,
-                   (v < ctl->info->value.enumerated.items) ? ctl->ename[v] : "???");
-        }
-
-        printf(" { %s=0", ctl->ename[0]);
-        for (m = 1; m < ctl->info->value.enumerated.items; m++)
-            printf(", %s=%d", ctl->ename[m],m);
-        printf(" }");
-        break;
-    default:
-        printf(" ???");
-    }
-    printf("\n");
 }
 
 static long scale_int(struct snd_ctl_elem_info *ei, unsigned _percent)
