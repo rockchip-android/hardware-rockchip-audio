@@ -1312,20 +1312,22 @@ AudioHardware::AudioStreamInALSA::~AudioStreamInALSA()
             mPcmIn = NULL;
         }
     }
-#ifdef DEBUG_ALSA_IN
-               
-       if(alsa_in_fp)
-               fclose(alsa_in_fp);
-#endif
 
 #if (SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE)
-	if(mSpeexState)
-    	speex_preprocess_state_destroy(mSpeexState);
+    if (mSpeexState) {
+        speex_preprocess_state_destroy(mSpeexState);
+        mSpeexState = NULL;
+    }
     if(mSpeexPcmIn) {
         delete[] mSpeexPcmIn;
         mSpeexPcmIn = NULL;
     }
 #endif //SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE
+
+#ifdef DEBUG_ALSA_IN
+       if(alsa_in_fp)
+               fclose(alsa_in_fp);
+#endif
 }
 status_t AudioHardware::AudioStreamInALSA::setGain(float gain)
 { 
@@ -1534,7 +1536,7 @@ status_t AudioHardware::AudioStreamInALSA::open_l()
 {
     unsigned flags = PCM_IN;
 
-    flags |= (AUDIO_HW_IN_PERIOD_MULT * mInSampleRate / 44100 - 1) << PCM_PERIOD_SZ_SHIFT;
+    flags |= (AUDIO_HW_IN_PERIOD_MULT * mInSampleRate / AUDIO_HW_IN_SAMPLERATE - 1) << PCM_PERIOD_SZ_SHIFT;
     flags |= (AUDIO_HW_IN_PERIOD_CNT - PCM_PERIOD_CNT_MIN)
             << PCM_PERIOD_CNT_SHIFT;
 
@@ -1691,11 +1693,14 @@ status_t AudioHardware::AudioStreamInALSA::setParameters(const String8& keyValue
                 }
             }
 #if (SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE)
-            speex_preprocess_state_destroy(mSpeexState);
-	      if(mSpeexPcmIn) {
+            if (mSpeexState) {
+                speex_preprocess_state_destroy(mSpeexState);
+                mSpeexState = NULL;
+            }
+            if(mSpeexPcmIn) {
                 delete[] mSpeexPcmIn;
                 mSpeexPcmIn = NULL;
-	      }
+            }
 #endif //SPEEX_AGC_ENABLE||SPEEX_DENOISE_ENABLE
 
             int pFormat = AUDIO_HW_IN_FORMAT;
@@ -1750,18 +1755,18 @@ status_t AudioHardware::AudioStreamInALSA::getNextBuffer(AudioHardware::BufferPr
 
     if (mInPcmInBuf == 0) {
         TRACE_DRIVER_IN(DRV_PCM_READ)
-        mReadStatus = pcm_read(mPcm,(void*) mPcmIn, AUDIO_HW_IN_PERIOD_SZ * frameSize() * mInSampleRate / 44100);
+        mReadStatus = pcm_read(mPcm,(void*) mPcmIn, AUDIO_HW_IN_PERIOD_SZ * frameSize() * mInSampleRate / AUDIO_HW_IN_SAMPLERATE);
         TRACE_DRIVER_OUT
         if (mReadStatus != 0) {
             buffer->raw = NULL;
             buffer->frameCount = 0;
             return mReadStatus;
         }
-        mInPcmInBuf = AUDIO_HW_IN_PERIOD_SZ * mInSampleRate / 44100;
+        mInPcmInBuf = AUDIO_HW_IN_PERIOD_SZ * mInSampleRate / AUDIO_HW_IN_SAMPLERATE;
     }
 
     buffer->frameCount = (buffer->frameCount > mInPcmInBuf) ? mInPcmInBuf : buffer->frameCount;
-    buffer->i16 = mPcmIn + (AUDIO_HW_IN_PERIOD_SZ  * mInSampleRate / 44100 - mInPcmInBuf) * mChannelCount;
+    buffer->i16 = mPcmIn + (AUDIO_HW_IN_PERIOD_SZ  * mInSampleRate / AUDIO_HW_IN_SAMPLERATE - mInPcmInBuf) * mChannelCount;
 
     return mReadStatus;
 }
