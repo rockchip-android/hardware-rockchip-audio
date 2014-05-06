@@ -1277,15 +1277,16 @@ const struct config_control rt3224_headphone_normal_controls[] = {
         .ctl_name = "ASRC Switch",
         .str_val = "Disable",
     },
-
     {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {off},
     },
+*/
     {
         .ctl_name = "OUT Playback Switch",
         .int_val = {off, off},
@@ -1427,11 +1428,12 @@ const struct config_control rt3224_headphone_normal_controls[] = {
         .ctl_name = "DAC MIXR Stereo ADC Switch",
         .int_val = {off},
     },
-
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {on},
     },
+*/
 };
 
 const struct config_control rt3224_headphone_incall_controls[] = {
@@ -1445,10 +1447,12 @@ const struct config_control rt3224_headphone_incall_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {off},
     },
+*/
     {
         .ctl_name = "OUT Playback Switch",
         .int_val = {off, off},
@@ -1638,10 +1642,12 @@ const struct config_control rt3224_headphone_incall_controls[] = {
         .ctl_name = "OUT Playback Switch",
         .int_val = {on, on},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {on},
     },
+*/
 };
 
 const struct config_control rt3224_headphone_ringtone_controls[] = {
@@ -1655,11 +1661,12 @@ const struct config_control rt3224_headphone_ringtone_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {off},
     },
-
+*/
     {
         .ctl_name = "Modem Input Switch",
         .int_val = {0},
@@ -1797,11 +1804,12 @@ const struct config_control rt3224_headphone_ringtone_controls[] = {
         .ctl_name = "DAC MIXR Stereo ADC Switch",
         .int_val = {off},
     },
-
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {on},
     },
+*/
 };
 
 const struct config_control rt3224_speaker_headphone_normal_controls[] = {
@@ -1815,11 +1823,12 @@ const struct config_control rt3224_speaker_headphone_normal_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {off},
     },
-
+*/
     //OPEN ROUTE
     {
         .ctl_name = "DAC L2 Mux",
@@ -1971,10 +1980,12 @@ const struct config_control rt3224_speaker_headphone_normal_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {on, on},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {on},
     },
+*/
 };
 
 const struct config_control rt3224_speaker_headphone_ringtone_controls[] = {
@@ -1988,11 +1999,12 @@ const struct config_control rt3224_speaker_headphone_ringtone_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {off},
     },
-
+*/
     //OPEN ROUTE
     {
         .ctl_name = "DAC L2 Mux",
@@ -2144,10 +2156,12 @@ const struct config_control rt3224_speaker_headphone_ringtone_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {on, on},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {on},
     },
+*/
 };
 
 const struct config_control rt3224_headphone_voip_controls[] = {
@@ -2161,10 +2175,12 @@ const struct config_control rt3224_headphone_voip_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {off},
     },
+*/
     {
         .ctl_name = "OUT Playback Switch",
         .int_val = {off, off},
@@ -2306,11 +2322,12 @@ const struct config_control rt3224_headphone_voip_controls[] = {
         .ctl_name = "DAC MIXR Stereo ADC Switch",
         .int_val = {off},
     },
-
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {on},
     },
+*/
 };
 
 const struct config_control rt3224_headset_normal_controls[] = {
@@ -2324,10 +2341,12 @@ const struct config_control rt3224_headset_normal_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {off},
     },
+*/
     {
         .ctl_name = "OUT Playback Switch",
         .int_val = {off, off},
@@ -2469,11 +2488,12 @@ const struct config_control rt3224_headset_normal_controls[] = {
         .ctl_name = "DAC MIXR Stereo ADC Switch",
         .int_val = {off},
     },
-
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {on},
     },
+*/
 };
 
 const struct config_control rt3224_headset_incall_controls[] = {
@@ -2487,10 +2507,12 @@ const struct config_control rt3224_headset_incall_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {off},
     },
+*/
     {
         .ctl_name = "OUT Playback Switch",
         .int_val = {off, off},
@@ -2684,10 +2706,12 @@ const struct config_control rt3224_headset_incall_controls[] = {
         .ctl_name = "OUT Playback Switch",
         .int_val = {on, on},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {on},
     },
+*/
 };
 
 const struct config_control rt3224_headset_ringtone_controls[] = {
@@ -2701,11 +2725,12 @@ const struct config_control rt3224_headset_ringtone_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {off},
     },
-
+*/
     {
         .ctl_name = "Modem Input Switch",
         .int_val = {0},
@@ -2843,11 +2868,12 @@ const struct config_control rt3224_headset_ringtone_controls[] = {
         .ctl_name = "DAC MIXR Stereo ADC Switch",
         .int_val = {off},
     },
-
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {on},
     },
+*/
 };
 
 const struct config_control rt3224_headset_voip_controls[] = {
@@ -2861,10 +2887,12 @@ const struct config_control rt3224_headset_voip_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {off},
     },
+*/
     {
         .ctl_name = "OUT Playback Switch",
         .int_val = {off, off},
@@ -3006,11 +3034,12 @@ const struct config_control rt3224_headset_voip_controls[] = {
         .ctl_name = "DAC MIXR Stereo ADC Switch",
         .int_val = {off},
     },
-
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {on},
     },
+*/
 };
 
 const struct config_control rt3224_bluetooth_normal_controls[] = {
@@ -3028,11 +3057,12 @@ const struct config_control rt3224_bluetooth_incall_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {off},
     },
-
+*/
     {
         .ctl_name = "Modem Input Switch",
         .int_val = {1},
@@ -3308,11 +3338,12 @@ const struct config_control rt3224_bluetooth_voip_controls[] = {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
     },
+/*
     {
         .ctl_name = "HP mute Switch",
         .int_val = {off},
     },
-
+*/
     {
         .ctl_name = "ASRC Switch",
         .str_val = "Enable",
@@ -3497,7 +3528,7 @@ const struct config_control rt3224_playback_off_controls[] = {
         .ctl_name = "ASRC Switch",
         .str_val = "Disable",
     },
-
+/*
     {
         .ctl_name = "Speaker Playback Switch",
         .int_val = {off, off},
@@ -3602,6 +3633,7 @@ const struct config_control rt3224_playback_off_controls[] = {
         .ctl_name = "DAC MIXR Stereo ADC Switch",
         .int_val = {off},
     },
+*/
 };
 
 const struct config_control rt3224_capture_off_controls[] = {
