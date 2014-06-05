@@ -524,41 +524,44 @@ int route_pcm_close(unsigned route)
 
     ALOGV("route_pcm_close() route %d", route);
 
-    //set controls
-    if (is_playback_route(route) ? mMixerPlayback : mMixerCapture)
-        route_set_controls(route);
-
-    switch (route) {
-    case  PLAYBACK_OFF_ROUTE://close playback, we need to close device 1 and device 2
-        if (mMixerPlayback) {
-            mixer_close(mMixerPlayback);
-            mMixerPlayback = NULL;
-        }
+    //close pcm
+    if (route == PLAYBACK_OFF_ROUTE) {
         if (mPcm[PCM_DEVICE0_PLAYBACK]) {
             pcm_close(mPcm[PCM_DEVICE0_PLAYBACK]);
             mPcm[PCM_DEVICE0_PLAYBACK] = NULL;
         }
 
+        //close playback, we need to close device 1 and device 2
         for (i = PCM_DEVICE1_PLAYBACK; i < PCM_MAX; i++) {
             if (mPcm[i]) {
                 pcm_close(mPcm[i]);
                 mPcm[i] = NULL;
             }
         }
-        break;
-    case CAPTURE_OFF_ROUTE:
-        if (mMixerCapture) {
-            mixer_close(mMixerCapture);
-            mMixerCapture = NULL;
-        }
+    } else if (route == CAPTURE_OFF_ROUTE) {
         if (mPcm[PCM_DEVICE0_CAPTURE]) {
             pcm_close(mPcm[PCM_DEVICE0_CAPTURE]);
             mPcm[PCM_DEVICE0_CAPTURE] = NULL;
         }
-        break;
-    default:
-        break;
     }
+
+    //set controls
+    if (is_playback_route(route) ? mMixerPlayback : mMixerCapture)
+        route_set_controls(route);
+
+    //close mixer
+    if (route == PLAYBACK_OFF_ROUTE) {
+        if (mMixerPlayback) {
+            mixer_close(mMixerPlayback);
+            mMixerPlayback = NULL;
+        }
+    } else if (route == CAPTURE_OFF_ROUTE) {
+        if (mMixerCapture) {
+            mixer_close(mMixerCapture);
+            mMixerCapture = NULL;
+        }
+    }
+
     return 0;
 }
 
