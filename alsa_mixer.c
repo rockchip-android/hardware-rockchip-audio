@@ -93,8 +93,10 @@ void mixer_close(struct mixer *mixer)
             if (mixer->ctl[n].ename) {
                 unsigned max = mixer->ctl[n].info->value.enumerated.items;
                 for (m = 0; m < max; m++)
-                    free(mixer->ctl[n].ename[m]);
-                free(mixer->ctl[n].ename);
+                    if(mixer->ctl[n].ename[m])
+                        free(mixer->ctl[n].ename[m]);
+                if(mixer->ctl[n].ename[m])
+                    free(mixer->ctl[n].ename);
             }
         }
         free(mixer->ctl);
