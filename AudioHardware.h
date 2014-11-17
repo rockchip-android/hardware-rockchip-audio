@@ -111,7 +111,12 @@ public:
         uint32_t devices, int *format, uint32_t *channels,
         uint32_t *sampleRate, status_t *status,
         AudioSystem::audio_in_acoustics acoustics);
-
+    virtual android_audio_legacy::AudioStreamOut* openOutputStreamWithFlags(uint32_t devices,
+                                          audio_output_flags_t flags,
+                                          int *format,
+                                          uint32_t *channels,
+                                          uint32_t *sampleRate,
+                                          status_t *status);
     virtual void closeOutputStream(android_audio_legacy::AudioStreamOut* out);
     virtual void closeInputStream(android_audio_legacy::AudioStreamIn* in);
 

@@ -483,7 +483,7 @@ static size_t adev_get_input_buffer_size(const struct audio_hw_device *dev,
 {
     const struct legacy_audio_device *ladev = to_cladev(dev);
     return ladev->hwif->getInputBufferSize(config->sample_rate, (int) config->format,
-                                           popcount(config->channel_mask));
+                                           audio_channel_count_from_in_mask(config->channel_mask));
 }
 
 static int adev_open_output_stream(struct audio_hw_device *dev,
@@ -491,7 +491,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                                    audio_devices_t devices,
                                    audio_output_flags_t flags,
                                    struct audio_config *config,
-                                   struct audio_stream_out **stream_out)
+                                   struct audio_stream_out **stream_out,
+                                   const char *address __unused)
 {
     struct legacy_audio_device *ladev = to_ladev(dev);
     status_t status;
@@ -504,7 +505,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 
     devices = convert_audio_device(devices, HAL_API_REV_2_0, HAL_API_REV_1_0);
 
-    out->legacy_out = ladev->hwif->openOutputStream(devices, (int *) &config->format,
+    out->legacy_out = ladev->hwif->openOutputStreamWithFlags(devices, flags,
+                                                    (int *) &config->format,
                                                     &config->channel_mask,
                                                     &config->sample_rate, &status);
     if (!out->legacy_out) {
@@ -554,7 +556,10 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
                                   audio_io_handle_t handle,
                                   audio_devices_t devices,
                                   struct audio_config *config,
-                                  struct audio_stream_in **stream_in)
+                                  struct audio_stream_in **stream_in,
+                                  audio_input_flags_t flags __unused,
+                                  const char *address __unused,
+                                  audio_source_t source __unused)
 {
     struct legacy_audio_device *ladev = to_ladev(dev);
     status_t status;

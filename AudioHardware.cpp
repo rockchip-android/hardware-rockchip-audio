@@ -231,6 +231,17 @@ android_audio_legacy::AudioStreamOut* AudioHardware::openOutputStream(
     return out.get();
 }
 
+
+// default implementation calls its "without flags" counterpart
+android_audio_legacy::AudioStreamOut* AudioHardware::openOutputStreamWithFlags(uint32_t devices,
+                                          audio_output_flags_t flags,
+                                          int *format,
+                                          uint32_t *channels,
+                                          uint32_t *sampleRate,
+                                          status_t *status)
+{
+    return openOutputStream(devices, format, channels, sampleRate, status);
+}
 void AudioHardware::closeOutputStream(android_audio_legacy::AudioStreamOut* out) {
      android::sp <AudioStreamOutALSA> spOut;
     {
@@ -1172,6 +1183,8 @@ status_t AudioHardware::AudioStreamOutALSA::getRenderPosition(uint32_t *dspFrame
     //TODO
     return INVALID_OPERATION;
 }
+
+
 
 //------------------------------------------------------------------------------
 //  AudioStreamInALSA
