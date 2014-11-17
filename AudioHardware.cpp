@@ -95,6 +95,10 @@ AudioHardware::AudioHardware() :
     mActivatedCP(false),
     mDriverOp(DRV_NONE)
 {
+    char pname[40];
+    snprintf(pname, sizeof(pname), AUDIO_HAL_VERSION_NAME);
+    property_set(pname, AUDIO_HAL_VERSION);
+
     loadRILD();
     mInit = true;
 

@@ -14,6 +14,21 @@
 ** limitations under the License.
 */
 
+/*
+**
+**
+**
+**             Audio Hardware Commit log
+**
+**V1.0.0
+**	1)Merge from 4.4 and fix some compile error
+**
+*/
+
+//AudioHardware Version
+#define AUDIO_HAL_VERSION_NAME "sys.audio.version"
+#define AUDIO_HAL_VERSION      "1.0.0"
+
 #ifndef ANDROID_AUDIO_HARDWARE_H
 #define ANDROID_AUDIO_HARDWARE_H
 
