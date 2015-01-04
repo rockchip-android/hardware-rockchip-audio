@@ -23,7 +23,14 @@ ifeq ($(strip $(TARGET_BOARD_HARDWARE)), rk2928board)
 endif
 
 LOCAL_MODULE := audio.primary.$(TARGET_BOARD_HARDWARE)
+ifneq (1,$(strip $(shell expr $(PLATFORM_VERSION) \>= 5.0)))
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
+else
+ifneq ($(strip $(TARGET_2ND_ARCH)), )
+LOCAL_MULTILIB := both
+endif
+LOCAL_MODULE_RELATIVE_PATH := hw
+endif
 LOCAL_MODULE_TAGS := optional
 LOCAL_STATIC_LIBRARIES := libmedia_helper \
 	libspeex
@@ -53,7 +60,14 @@ LOCAL_SRC_FILES := \
 
 LOCAL_CFLAGS += -DSUPPORT_USB
 LOCAL_MODULE := audio.alsa_usb.$(TARGET_BOARD_HARDWARE)
+ifneq (1,$(strip $(shell expr $(PLATFORM_VERSION) \>= 5.0)))
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
+else
+ifneq ($(strip $(TARGET_2ND_ARCH)), )
+LOCAL_MULTILIB := both
+endif
+LOCAL_MODULE_RELATIVE_PATH := hw
+endif
 LOCAL_MODULE_TAGS := optional
 LOCAL_STATIC_LIBRARIES := libmedia_helper \
 	libspeex
@@ -109,7 +123,14 @@ LOCAL_WHOLE_STATIC_LIBRARIES := \
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := audio_policy.$(TARGET_BOARD_HARDWARE)
+ifneq (1,$(strip $(shell expr $(PLATFORM_VERSION) \>= 5.0)))
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
+else
+ifneq ($(strip $(TARGET_2ND_ARCH)), )
+LOCAL_MULTILIB := both
+endif
+LOCAL_MODULE_RELATIVE_PATH := hw
+endif
 LOCAL_MODULE_TAGS := optional
 LOCAL_CFLAGS := -Wno-unused-parameter
 ifeq ($(BOARD_HAVE_BLUETOOTH),true)
