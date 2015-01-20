@@ -32,7 +32,6 @@
 #include <hardware/hardware.h>
 
 #include <linux/videodev2.h>
-//#include <videodev2_exynos_media.h>
 
 #include <system/audio.h>
 
@@ -41,14 +40,13 @@
 #include <audio_utils/resampler.h>
 #include <audio_route/audio_route.h>
 
-//#include <BubbleLevel.h>
 
-//#include <eS305VoiceProcessing.h>
 
 #define PCM_CARD 0
 #define PCM_CARD_HDMI 1
-#define PCM_CARD_SPDIF 2
-#define PCM_TOTAL 3 
+#define PCM_CARD_SPDIF 2 
+#define PCM_CARD_USB 3
+#define PCM_TOTAL 4 
 
 #define PCM_DEVICE 0
 #define PCM_DEVICE_SCO 1
@@ -76,11 +74,12 @@ FILE *in_debug;
 /*************************************************************
  *                 ALSA Audio Git Log
  *V0.1.0:add alsa audio hal,just support 312x now.
+ *V0.2.0:remove unused variable.
  *
  *
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.1.0" 
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.2.0" 
 
 struct pcm_config pcm_config = {
     .channels = 2,
@@ -159,11 +158,7 @@ struct audio_device {
     struct pcm *pcm_sco_out;
     struct pcm *pcm_voice_in;
     struct pcm *pcm_sco_in;
-    //int es305_preset;
-    //int es305_new_mode;
-    //int es305_mode;
     int hdmi_drv_fd;    /* either an fd >= 0 or -1 */
-    //struct bubble_level *bubble_level;
     audio_channel_mask_t in_channel_mask;
     unsigned int sco_on_count;
 
@@ -253,11 +248,6 @@ enum {
     IN_SOURCE_CNT
 };
 
-/*enum {
-    ES305_MODE_DEFAULT,
-    ES305_MODE_LEVEL,
-    ES305_NUM_MODES,
-};*/
 
 int get_output_device_id(audio_devices_t device)
 {
@@ -314,99 +304,71 @@ int get_input_source_id(audio_source_t source)
 struct route_config {
     const char * const output_route;
     const char * const input_route;
-    //int es305_preset[ES305_NUM_MODES]; // es305 preset for this route.
-                                       // -1 means es305 bypass
 };
 
 const struct route_config media_speaker = {
     "media-speaker",
     "media-main-mic",
-    //{ ES305_PRESET_OFF,
-    //  ES305_PRESET_OFF }
 };
 
 const struct route_config media_headphones = {
     "media-headphones",
     "media-main-mic",
-   // { ES305_PRESET_OFF,
-   //   ES305_PRESET_OFF }
 };
 
 const struct route_config media_headset = {
     "media-headphones",
     "media-headset-mic",
-    //{ ES305_PRESET_OFF,
-    //  ES305_PRESET_OFF }
 };
 
 const struct route_config camcorder_speaker = {
     "media-speaker",
     "media-second-mic",
-    //{ ES305_PRESET_CAMCORDER,
-    //  ES305_PRESET_CAMCORDER }
 };
 
 const struct route_config camcorder_headphones = {
     "media-headphones",
     "media-second-mic",
-    //{ ES305_PRESET_CAMCORDER,
-    //  ES305_PRESET_CAMCORDER }
 };
 
 const struct route_config voice_rec_speaker = {
     "voice-rec-speaker",
     "voice-rec-main-mic",
-   // { ES305_PRESET_ASRA_HANDHELD,
-   //   ES305_PRESET_ASRA_DESKTOP }
 };
 
 const struct route_config voice_rec_headphones = {
     "voice-rec-headphones",
     "voice-rec-main-mic",
-    //{ ES305_PRESET_ASRA_HANDHELD,
-    //  ES305_PRESET_ASRA_DESKTOP }
 };
 
 const struct route_config voice_rec_headset = {
     "voice-rec-headphones",
     "voice-rec-headset-mic",
-    //{ ES305_PRESET_ASRA_HEADSET,
-    //  ES305_PRESET_ASRA_HEADSET }
 };
 
 const struct route_config communication_speaker = {
     "communication-speaker",
     "communication-main-mic",
-   // { ES305_PRESET_VOIP_HANDHELD,
-   //   ES305_PRESET_VOIP_DESKTOP }
 };
 
 const struct route_config communication_headphones = {
     "communication-headphones",
     "communication-main-mic",
-    //{ ES305_PRESET_VOIP_HEADPHONES,
-    //  ES305_PRESET_VOIP_HP_DESKTOP}
 };
 
 const struct route_config communication_headset = {
     "communication-headphones",
     "communication-headset-mic",
-    //{ ES305_PRESET_VOIP_HEADSET,
-    //  ES305_PRESET_VOIP_HEADSET }
 };
 
 const struct route_config speaker_and_headphones = {
     "speaker-and-headphones",
     "main-mic",
-   // { ES305_PRESET_CURRENT,
-   //   ES305_PRESET_CURRENT }
 };
 
 const struct route_config bluetooth_sco = {
     "bt-sco-headset",
     "bt-sco-mic",
-    //{ ES305_PRESET_OFF,
-    //  ES305_PRESET_OFF }
 };
 
 const struct route_config * const route_configs[IN_SOURCE_TAB_SIZE]
@@ -545,17 +507,15 @@ static void select_devices(struct audio_device *adev)
     const char *output_route = NULL;
     const char *input_route = NULL;
     int new_route_id;
-    int new_es305_preset = -1;
 
     audio_route_reset(adev->ar);
 
     enable_hdmi_audio(adev, adev->out_device & AUDIO_DEVICE_OUT_AUX_DIGITAL);
 
     new_route_id = (1 << (input_source_id + OUT_DEVICE_CNT)) + (1 << output_device_id);
-    if ((new_route_id == adev->cur_route_id) /*&& (adev->es305_mode == adev->es305_new_mode)*/)
+    if ((new_route_id == adev->cur_route_id) )
         return;
     adev->cur_route_id = new_route_id;
-    //adev->es305_mode = adev->es305_new_mode;
 
     if (input_source_id != IN_SOURCE_NONE) {
         if (output_device_id != OUT_DEVICE_NONE) {
@@ -563,8 +523,6 @@ static void select_devices(struct audio_device *adev)
                     route_configs[input_source_id][output_device_id]->input_route;
             output_route =
                     route_configs[input_source_id][output_device_id]->output_route;
-            //new_es305_preset =
-            //    route_configs[input_source_id][output_device_id]->es305_preset[adev->es305_mode];
         } else {
             switch (adev->in_device) {
             case AUDIO_DEVICE_IN_WIRED_HEADSET & ~AUDIO_DEVICE_BIT_IN:
@@ -579,13 +537,12 @@ static void select_devices(struct audio_device *adev)
             }
             input_route =
                     route_configs[input_source_id][output_device_id]->input_route;
-            //new_es305_preset =
-            //    route_configs[input_source_id][output_device_id]->es305_preset[adev->es305_mode];
         }
         // disable noise suppression when capturing front and back mic for voice recognition
         if ((adev->input_source == AUDIO_SOURCE_VOICE_RECOGNITION) &&
-                (adev->in_channel_mask == AUDIO_CHANNEL_IN_FRONT_BACK))
-            new_es305_preset = -1;
+                (adev->in_channel_mask == AUDIO_CHANNEL_IN_FRONT_BACK)) {
+            ALOGE("Not support");		
+		}
     } else {
         if (output_device_id != OUT_DEVICE_NONE) {
             output_route =
@@ -600,52 +557,14 @@ static void select_devices(struct audio_device *adev)
 
     if (output_route)
         audio_route_apply_path(adev->ar, output_route);
-	if (input_route)
+    if (input_route)
         audio_route_apply_path(adev->ar, input_route);
 
-    /*if ((new_es305_preset != ES305_PRESET_CURRENT) &&
-            (new_es305_preset != adev->es305_preset)) {
-        ALOGV("  select_devices() changing es305 preset from %d to %d",
-              adev->es305_preset, new_es305_preset);
-        if (eS305_UsePreset(new_es305_preset) == 0) {
-            adev->es305_preset = new_es305_preset;
-        }
-    }*/
-
+    
     audio_route_update_mixer(adev->ar);
 }
 
-/* must be called with hw device mutex unlocked */
-void bubblelevel_callback(bool is_level, void *user_data)
-{
-    /*struct audio_device *adev = (struct audio_device *)user_data;
-    int es305_mode;
 
-    if (is_level)
-        es305_mode = ES305_MODE_LEVEL;
-    else
-        es305_mode = ES305_MODE_DEFAULT;
-
-    pthread_mutex_lock(&adev->lock);
-    if (es305_mode != adev->es305_mode) {
-        adev->es305_new_mode = es305_mode;
-        select_devices(adev);
-        ALOGV("bubblelevel_callback is_level %d es305_mode %d", is_level, es305_mode);
-    }
-    pthread_mutex_unlock(&adev->lock);*/
-}
-
-/* must be called with hw device mutex locked */
-bool get_bubblelevel(struct audio_device *adev)
-{
-    /*if (!adev->bubble_level) {
-        adev->bubble_level = bubble_level_create();
-        if (adev->bubble_level)
-            adev->bubble_level->set_callback(adev->bubble_level, bubblelevel_callback, adev);
-    }
-    return (adev->bubble_level != NULL);*/
-	return false;
-}
 
 /* must be called with hw device outputs list, all out streams, and hw device mutexes locked */
 static void force_non_hdmi_out_standby(struct audio_device *adev)
@@ -789,10 +708,6 @@ static int start_output_stream(struct stream_out *out)
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL)
         set_hdmi_channels(adev, out->config.channels);
 
-    /* anticipate level measurement in case we start capture later */
-    /*if (get_bubblelevel(adev))
-        adev->bubble_level->poll_once(adev->bubble_level);
-	*/
     return 0;
 }
 
@@ -821,7 +736,6 @@ static int start_input_stream(struct stream_in *in)
     adev->in_device = in->device;
     adev->in_channel_mask = in->channel_mask;
 
-    //eS305_SetActiveIoHandle(in->io_handle);
     select_devices(adev);
 
     if (in->device & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET)
@@ -832,10 +746,6 @@ static int start_input_stream(struct stream_in *in)
     in->ramp_step = (uint16_t)(USHRT_MAX / in->ramp_frames);
     in->ramp_vol = 0;;
 
-    /*if (get_bubblelevel(adev)) {
-        adev->bubble_level->set_poll_interval(adev->bubble_level, BL_POLL_INTERVAL_MIN_SEC);
-        adev->bubble_level->start_polling(adev->bubble_level);
-    }*/
 
     return 0;
 }
@@ -1409,11 +1319,8 @@ static void do_in_standby(struct stream_in *in)
         select_devices(adev);
         in->standby = true;
 
-        /*if (get_bubblelevel(adev))
-            in->dev->bubble_level->stop_polling(adev->bubble_level);*/
     }
 
-    //eS305_SetActiveIoHandle(ES305_IO_HANDLE_NONE);
 }
 
 static int in_standby(struct audio_stream *stream)
@@ -1595,7 +1502,6 @@ static int in_add_audio_effect(const struct audio_stream *stream,
         pthread_mutex_lock(&in->lock);
         pthread_mutex_lock(&in->dev->lock);
 
-        //eS305_AddEffect(&descr, in->io_handle);
 
         pthread_mutex_unlock(&in->dev->lock);
         pthread_mutex_unlock(&in->lock);
@@ -1614,7 +1520,6 @@ static int in_remove_audio_effect(const struct audio_stream *stream,
         pthread_mutex_lock(&in->lock);
         pthread_mutex_lock(&in->dev->lock);
 
-        //eS305_RemoveEffect(&descr, in->io_handle);
 
         pthread_mutex_unlock(&in->dev->lock);
         pthread_mutex_unlock(&in->lock);
@@ -1936,14 +1841,10 @@ static int adev_close(hw_device_t *device)
 
     audio_route_free(adev->ar);
 
-    //eS305_Release();
 
     if (adev->hdmi_drv_fd >= 0)
         close(adev->hdmi_drv_fd);
 
-    /*if (adev->bubble_level)
-        bubble_level_release(adev->bubble_level);
-*/
     free(device);
     return 0;
 }
@@ -1988,9 +1889,6 @@ static int adev_open(const hw_module_t* module, const char* name,
     /* adev->cur_route_id initial value is 0 and such that first device
      * selection is always applied by select_devices() */
 
-    //adev->es305_preset = ES305_PRESET_INIT;
-    //adev->es305_new_mode = ES305_MODE_LEVEL;
-    //adev->es305_mode = ES305_MODE_LEVEL;
     adev->hdmi_drv_fd = -1;
 
     *device = &adev->hw_device.common;
