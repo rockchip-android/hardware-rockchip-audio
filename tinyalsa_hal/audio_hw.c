@@ -75,11 +75,12 @@ FILE *in_debug;
  *                 ALSA Audio Git Log
  *V0.1.0:add alsa audio hal,just support 312x now.
  *V0.2.0:remove unused variable.
+ *V0.3.0:turn off device when do_standby.
  *
  *
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.2.0" 
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.3.0" 
 
 struct pcm_config pcm_config = {
     .channels = 2,
@@ -95,9 +96,9 @@ struct pcm_config pcm_config_in = {
     .period_size = 256, 
     .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
-	.start_threshold = 0,
-	.stop_threshold = 0,
-	.silence_threshold = 0,
+    .start_threshold = 0,
+    .stop_threshold = 0,
+    .silence_threshold = 0,
 };
 
 struct pcm_config pcm_config_in_low_latency = {
@@ -164,6 +165,9 @@ struct audio_device {
 
     struct stream_out *outputs[OUTPUT_TOTAL];
     pthread_mutex_t lock_outputs; /* see note below on mutex acquisition order */
+    int pre_output_device_id;
+    int pre_input_source_id;
+	
 };
 
 struct stream_out {
@@ -233,6 +237,7 @@ enum {
     OUT_DEVICE_HEADPHONES,
     OUT_DEVICE_BT_SCO,
     OUT_DEVICE_SPEAKER_AND_HEADSET,
+    OUT_DEVICE_OFF,
     OUT_DEVICE_TAB_SIZE,           /* number of rows in route_configs[][] */
     OUT_DEVICE_NONE,
     OUT_DEVICE_CNT
@@ -243,6 +248,7 @@ enum {
     IN_SOURCE_CAMCORDER,
     IN_SOURCE_VOICE_RECOGNITION,
     IN_SOURCE_VOICE_COMMUNICATION,
+    IN_SOURCE_OFF,
     IN_SOURCE_TAB_SIZE,            /* number of lines in route_configs[][] */
     IN_SOURCE_NONE,
     IN_SOURCE_CNT
@@ -304,71 +310,99 @@ int get_input_source_id(audio_source_t source)
 struct route_config {
     const char * const output_route;
     const char * const input_route;
+    const char * const output_off;
+    const char * const input_off;
 };
 
 const struct route_config media_speaker = {
     "media-speaker",
     "media-main-mic",
+    "playback-off",
+    "capture-off",
 };
 
 const struct route_config media_headphones = {
     "media-headphones",
     "media-main-mic",
+    "playback-off",
+    "capture-off",
 };
 
 const struct route_config media_headset = {
     "media-headphones",
     "media-headset-mic",
+    "playback-off",
+    "capture-off",
 };
 
 const struct route_config camcorder_speaker = {
     "media-speaker",
     "media-second-mic",
+    "playback-off",
+    "capture-off",
 };
 
 const struct route_config camcorder_headphones = {
     "media-headphones",
     "media-second-mic",
+    "playback-off",
+    "capture-off",
 };
 
 const struct route_config voice_rec_speaker = {
     "voice-rec-speaker",
     "voice-rec-main-mic",
+    "incall-off",
+    "incall-off",
 };
 
 const struct route_config voice_rec_headphones = {
     "voice-rec-headphones",
     "voice-rec-main-mic",
+    "incall-off",
+    "incall-off",
 };
 
 const struct route_config voice_rec_headset = {
     "voice-rec-headphones",
     "voice-rec-headset-mic",
+    "incall-off",
+    "incall-off",
 };
 
 const struct route_config communication_speaker = {
     "communication-speaker",
     "communication-main-mic",
+    "voip-off",
+    "voip-off",
 };
 
 const struct route_config communication_headphones = {
     "communication-headphones",
     "communication-main-mic",
+    "voip-off",
+    "voip-off",
 };
 
 const struct route_config communication_headset = {
     "communication-headphones",
     "communication-headset-mic",
+    "voip-off",
+    "voip-off",
 };
 
 const struct route_config speaker_and_headphones = {
     "speaker-and-headphones",
     "main-mic",
+    "playback-off",
+    "capture-off",
 };
 
 const struct route_config bluetooth_sco = {
     "bt-sco-headset",
     "bt-sco-mic",
+    "playback-off",
+    "capture-off",
 };
 
 const struct route_config * const route_configs[IN_SOURCE_TAB_SIZE]
@@ -477,7 +511,7 @@ static int read_hdmi_channel_masks(struct audio_device *adev, struct stream_out 
         out->supported_channel_masks[1] = AUDIO_CHANNEL_OUT_7POINT1;
 
     return ret;*/
-	return 0;
+    return 0;
 }
 
 /* must be called with hw device mutex locked */
@@ -496,8 +530,11 @@ static int set_hdmi_channels(struct audio_device *adev, int channels) {
         ALOGE("V4L2_CID_TV_SET_NUM_CHANNELS ioctl error (%d)", errno);
 
     return ret;*/
-	return 0;
+    return 0;
 }
+
+
+
 
 /* must be called with hw device mutex locked */
 static void select_devices(struct audio_device *adev)
@@ -516,7 +553,6 @@ static void select_devices(struct audio_device *adev)
     if ((new_route_id == adev->cur_route_id) )
         return;
     adev->cur_route_id = new_route_id;
-
     if (input_source_id != IN_SOURCE_NONE) {
         if (output_device_id != OUT_DEVICE_NONE) {
             input_route =
@@ -542,15 +578,21 @@ static void select_devices(struct audio_device *adev)
         if ((adev->input_source == AUDIO_SOURCE_VOICE_RECOGNITION) &&
                 (adev->in_channel_mask == AUDIO_CHANNEL_IN_FRONT_BACK)) {
             ALOGE("Not support");		
-		}
+        }
     } else {
         if (output_device_id != OUT_DEVICE_NONE) {
+            input_source_id = IN_SOURCE_MIC;
             output_route =
                     route_configs[IN_SOURCE_MIC][output_device_id]->output_route;
         }
+        else{
+            output_device_id = OUT_DEVICE_SPEAKER;
+            input_source_id = IN_SOURCE_MIC;  
+            ALOGE("output device is null and input device is null,please check it");
+        }
     }
 
-    ALOGV("select_devices() devices %#x input src %d output route %s input route %s",
+    ALOGD("select_devices() devices %#x input src %d output route %s input route %s",
           adev->out_device, adev->input_source,
           output_route ? output_route : "none",
           input_route ? input_route : "none");
@@ -559,12 +601,40 @@ static void select_devices(struct audio_device *adev)
         audio_route_apply_path(adev->ar, output_route);
     if (input_route)
         audio_route_apply_path(adev->ar, input_route);
-
+	
+    adev->pre_output_device_id = output_device_id;
+    adev->pre_input_source_id = input_source_id;
     
     audio_route_update_mixer(adev->ar);
 }
 
-
+static void close_devices(struct audio_device *pre_adev)
+{
+    int output_device_id = pre_adev->pre_output_device_id;
+    int input_source_id = pre_adev->pre_input_source_id;
+    const char *output_route = NULL;
+    const char *input_route = NULL;
+	
+    input_route =
+        route_configs[output_device_id][input_source_id]->input_off;
+    output_route =
+        route_configs[output_device_id][input_source_id]->output_off;
+	
+    if (output_route)
+        audio_route_apply_path(pre_adev->ar, output_route);
+    if (input_route)
+        audio_route_apply_path(pre_adev->ar, input_route);
+}
+static void select_route(struct audio_device *adev,bool on) {
+    const char *output_route = NULL;
+    const char *input_route = NULL;
+    ALOGV("=====select_route=======");
+    if(on){
+        select_devices(adev);	
+    }else {
+        close_devices(adev);
+    }
+}
 
 /* must be called with hw device outputs list, all out streams, and hw device mutexes locked */
 static void force_non_hdmi_out_standby(struct audio_device *adev)
@@ -700,7 +770,7 @@ static int start_output_stream(struct stream_out *out)
     }
 
     adev->out_device |= out->device;
-    select_devices(adev);
+    select_route(adev,true);
 
     if (out->device & AUDIO_DEVICE_OUT_ALL_SCO)
         start_bt_sco(adev);
@@ -718,9 +788,9 @@ static int start_input_stream(struct stream_in *in)
 
     in->pcm = pcm_open(PCM_CARD, PCM_DEVICE, PCM_IN, in->config);
     
-   ALOGV("%s:in->config->channel:%d,rates:%d,period_size:%d,period_count:%d,format:%d",
-		   __FUNCTION__,in->config->channels,in->config->rate,in->config->period_size,
-		   in->config->period_count,in->config->format);
+   //ALOGV("%s:in->config->channel:%d,rates:%d,period_size:%d,period_count:%d,format:%d",
+   //		   __FUNCTION__,in->config->channels,in->config->rate,in->config->period_size,
+   //		   in->config->period_count,in->config->format);
     if (in->pcm && !pcm_is_ready(in->pcm)) {
         ALOGE("pcm_open() failed: %s", pcm_get_error(in->pcm));
         pcm_close(in->pcm);
@@ -736,7 +806,7 @@ static int start_input_stream(struct stream_in *in)
     adev->in_device = in->device;
     adev->in_channel_mask = in->channel_mask;
 
-    select_devices(adev);
+    select_route(adev,true);
 
     if (in->device & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET)
         start_bt_sco(adev);
@@ -790,7 +860,7 @@ static int get_next_buffer(struct resampler_buffer_provider *buffer_provider,
     }
 
     if (in->frames_in == 0) {
-		size = pcm_frames_to_bytes(in->pcm,pcm_get_buffer_size(in->pcm));
+        size = pcm_frames_to_bytes(in->pcm,pcm_get_buffer_size(in->pcm));
         in->read_status = pcm_read(in->pcm,
                                    (void*)in->buffer,pcm_frames_to_bytes(in->pcm, in->config->period_size));
         if (in->read_status != 0) {
@@ -800,19 +870,19 @@ static int get_next_buffer(struct resampler_buffer_provider *buffer_provider,
             return in->read_status;
         }
 
-		//fwrite(in->buffer,pcm_frames_to_bytes(in->pcm,pcm_get_buffer_size(in->pcm)),1,in_debug);
+        //fwrite(in->buffer,pcm_frames_to_bytes(in->pcm,pcm_get_buffer_size(in->pcm)),1,in_debug);
         in->frames_in = in->config->period_size;
 
         /* Do stereo to mono conversion in place by discarding right channel */
         /*if (in->channel_mask == AUDIO_CHANNEL_IN_MONO)
-		{
-			ALOGE("channel_mask = AUDIO_CHANNEL_IN_MONO");
-			for (i = 1; i < in->frames_in; i++)
+        {
+            ALOGE("channel_mask = AUDIO_CHANNEL_IN_MONO");
+            for (i = 1; i < in->frames_in; i++)
                 in->buffer[i] = in->buffer[i * 2];
-		}*/
+        }*/
     }
 
-	ALOGV("pcm_frames_to_bytes(in->pcm,pcm_get_buffer_size(in->pcm)):%d",size);
+    //ALOGV("pcm_frames_to_bytes(in->pcm,pcm_get_buffer_size(in->pcm)):%d",size);
     buffer->frame_count = (buffer->frame_count > in->frames_in) ?
                                 in->frames_in : buffer->frame_count;
     buffer->i16 = in->buffer +
@@ -863,7 +933,7 @@ static ssize_t read_frames(struct stream_in *in, void *buffer, ssize_t frames)
                         buf.raw,
                         buf.frame_count * frame_size);
                 frames_rd = buf.frame_count;
-				ALOGV("====frames_wr:%d,buf.frame_count:%d,frame_size:%d====",frames_wr,buf.frame_count,frame_size);
+				//ALOGV("====frames_wr:%d,buf.frame_count:%d,frame_size:%d====",frames_wr,buf.frame_count,frame_size);
 #ifdef ALSA_IN_DEBUG		        
 				fwrite(buffer,frames_wr * frame_size,1,in_debug);
 #endif
@@ -970,9 +1040,14 @@ static void do_out_standby(struct stream_out *out)
         /* re-calculate the set of active devices from other streams */
         adev->out_device = output_devices(out);
 
+        select_route(adev,false);
+        ALOGD("close device");
+
         /* Skip resetting the mixer if no output device is active */
-        if (adev->out_device)
-            select_devices(adev);
+        //if (adev->out_device){
+        //    select_route(adev,false);
+        //	ALOGV("========================");
+        //}
     }
 }
 
@@ -1057,7 +1132,7 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
                     !adev->outputs[OUTPUT_HDMI] ||
                     adev->outputs[OUTPUT_HDMI]->standby)) {
                 adev->out_device = output_devices(out) | val;
-                select_devices(adev);
+                select_route(adev,true);
             }
             out->device = val;
         }
@@ -1263,7 +1338,7 @@ static int out_get_presentation_position(const struct audio_stream_out *stream,
 static uint32_t in_get_sample_rate(const struct audio_stream *stream)
 {
     struct stream_in *in = (struct stream_in *)stream;
-    ALOGV("%s:get requested_rate : %d ",__FUNCTION__,in->requested_rate);	
+    //ALOGV("%s:get requested_rate : %d ",__FUNCTION__,in->requested_rate);	
     return in->requested_rate;
 }
 
@@ -1276,7 +1351,7 @@ static audio_channel_mask_t in_get_channels(const struct audio_stream *stream)
 {
     struct stream_in *in = (struct stream_in *)stream;
 
-    ALOGV("%s:get channel_mask : %d ",__FUNCTION__,in->channel_mask);	
+    //ALOGV("%s:get channel_mask : %d ",__FUNCTION__,in->channel_mask);	
     return in->channel_mask;
 }
 
@@ -1316,7 +1391,7 @@ static void do_in_standby(struct stream_in *in)
         in->dev->input_source = AUDIO_SOURCE_DEFAULT;
         in->dev->in_device = AUDIO_DEVICE_NONE;
         in->dev->in_channel_mask = 0;
-        select_devices(adev);
+        select_route(adev,false);
         in->standby = true;
 
     }
@@ -1388,7 +1463,7 @@ static int in_set_parameters(struct audio_stream *stream, const char *kvpairs)
     if (apply_now) {
         adev->input_source = in->input_source;
         adev->in_device = in->device;
-        select_devices(adev);
+        select_route(adev,true);
     }
 
     pthread_mutex_unlock(&adev->lock);
@@ -1463,7 +1538,7 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer,
     /*if (in->num_preprocessors != 0)
         ret = process_frames(in, buffer, frames_rq);
       else */
-	ALOGV("%s:frames_rq:%d",__FUNCTION__,frames_rq);
+	//ALOGV("%s:frames_rq:%d",__FUNCTION__,frames_rq);
     ret = read_frames(in, buffer, frames_rq);
     if (ret > 0)
         ret = 0;
@@ -1734,7 +1809,7 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
 	in_debug = fopen("/data/debug.pcm","wb");//please touch /data/debug.pcm first
 #endif
 	/* Respond with a request for mono if a different format is given. */
-    ALOGV("%s:config->channel_mask %d",__FUNCTION__,config->channel_mask);
+    //ALOGV("%s:config->channel_mask %d",__FUNCTION__,config->channel_mask);
 	if (/*config->channel_mask != AUDIO_CHANNEL_IN_MONO &&
             config->channel_mask != AUDIO_CHANNEL_IN_FRONT_BACK &&*/
 			config->channel_mask != AUDIO_CHANNEL_IN_STEREO) {
@@ -1789,8 +1864,8 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         in->buf_provider.get_next_buffer = get_next_buffer;
         in->buf_provider.release_buffer = release_buffer;
 
-		ALOGV("========pcm_config->rate:%d,in->requested_rate:%d,in->channel_mask:%d=====",
-				pcm_config->rate,in->requested_rate,audio_channel_count_from_in_mask(in->channel_mask));
+		//ALOGV("========pcm_config->rate:%d,in->requested_rate:%d,in->channel_mask:%d=====",
+	//			pcm_config->rate,in->requested_rate,audio_channel_count_from_in_mask(in->channel_mask));
         ret = create_resampler(pcm_config->rate,
                                in->requested_rate,
                                audio_channel_count_from_in_mask(in->channel_mask),

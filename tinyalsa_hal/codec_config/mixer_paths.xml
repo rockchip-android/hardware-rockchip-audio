@@ -90,4 +90,21 @@
   <path name="communication-headset-mic">
     <path name="main-mic" />
   </path>
+
+  <!-- Off paths -->
+
+  <path name="playback-off">
+      <ctl name="Playback Path" value="OFF" />
+  </path>
+
+  <path name="capture-off">
+      <ctl name="Capture MIC Path" value="MIC OFF" />
+  </path>
+
+  <path name="incall-off">
+       <ctl name="Voice Call Path" value="OFF" />
+  </path>
+  <path name="voip-off">
+       <ctl name="Voip Path" value="OFF" />
+  </path>
 </mixer>
