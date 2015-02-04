@@ -76,11 +76,12 @@ FILE *in_debug;
  *V0.1.0:add alsa audio hal,just support 312x now.
  *V0.2.0:remove unused variable.
  *V0.3.0:turn off device when do_standby.
+ *V0.4.0:turn off device before open pcm.
  *
  *
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.3.0" 
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.4.0" 
 
 struct pcm_config pcm_config = {
     .channels = 2,
@@ -533,6 +534,23 @@ static int set_hdmi_channels(struct audio_device *adev, int channels) {
     return 0;
 }
 
+static void close_devices(struct audio_device *pre_adev)
+{
+    int output_device_id = pre_adev->pre_output_device_id;
+    int input_source_id = pre_adev->pre_input_source_id;
+    const char *output_route = NULL;
+    const char *input_route = NULL;
+	
+    input_route =
+        route_configs[output_device_id][input_source_id]->input_off;
+    output_route =
+        route_configs[output_device_id][input_source_id]->output_off;
+	
+    if (output_route)
+        audio_route_apply_path(pre_adev->ar, output_route);
+    if (input_route)
+        audio_route_apply_path(pre_adev->ar, input_route);
+}
 
 
 
@@ -544,6 +562,8 @@ static void select_devices(struct audio_device *adev)
     const char *output_route = NULL;
     const char *input_route = NULL;
     int new_route_id;
+
+    close_devices(adev);
 
     audio_route_reset(adev->ar);
 
@@ -608,26 +628,8 @@ static void select_devices(struct audio_device *adev)
     audio_route_update_mixer(adev->ar);
 }
 
-static void close_devices(struct audio_device *pre_adev)
-{
-    int output_device_id = pre_adev->pre_output_device_id;
-    int input_source_id = pre_adev->pre_input_source_id;
-    const char *output_route = NULL;
-    const char *input_route = NULL;
-	
-    input_route =
-        route_configs[output_device_id][input_source_id]->input_off;
-    output_route =
-        route_configs[output_device_id][input_source_id]->output_off;
-	
-    if (output_route)
-        audio_route_apply_path(pre_adev->ar, output_route);
-    if (input_route)
-        audio_route_apply_path(pre_adev->ar, input_route);
-}
+
 static void select_route(struct audio_device *adev,bool on) {
-    const char *output_route = NULL;
-    const char *input_route = NULL;
     ALOGV("=====select_route=======");
     if(on){
         select_devices(adev);	
@@ -1673,6 +1675,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->stream.get_presentation_position = out_get_presentation_position;
 
     out->dev = adev;
+    out->dev->pre_output_device_id = OUT_DEVICE_SPEAKER;
+    out->dev->pre_input_source_id = IN_SOURCE_MIC;
 
     config->format = out_get_format(&out->stream.common);
     config->channel_mask = out_get_channels(&out->stream.common);
