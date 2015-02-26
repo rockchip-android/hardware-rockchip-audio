@@ -25,10 +25,12 @@ LOCAL_SRC_FILES := \
 LOCAL_C_INCLUDES += \
 	external/tinyalsa/include \
 	$(call include-path-for, audio-utils) \
-	$(call include-path-for, audio-route)
+	$(call include-path-for, audio-route) \
+	$(call include-path-for, speex)
 
 LOCAL_CFLAGS := -Wno-unused-parameter
-LOCAL_SHARED_LIBRARIES := liblog libcutils libtinyalsa libaudioutils libaudioroute 
+LOCAL_SHARED_LIBRARIES := liblog libcutils libtinyalsa libaudioutils libaudioroute
+LOCAL_STATIC_LIBRARIES := libspeex
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)

@@ -42,6 +42,9 @@
 
 #include "alsa_audio.h"
 
+#include <speex/speex.h>
+#include <speex/speex_preprocess.h>
+
 
 #define PCM_CARD 0
 #define PCM_CARD_HDMI 1
@@ -80,11 +83,14 @@ FILE *in_debug;
  *V0.4.0:turn off device before open pcm.
  *V0.4.1:Need to re-open the control to fix no sound when suspend.
  *V0.5.0:Merge the mixer operation from legacy_alsa.
+ *V0.6.0:Merge speex denoise from legacy_alsa.
  *
  *
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.5.0"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.6.0"
+
+#define SPEEX_DENOISE_ENABLE
 
 struct pcm_config pcm_config = {
     .channels = 2,
@@ -217,6 +223,11 @@ struct stream_in {
     struct pcm_config *config;
 
     struct audio_device *dev;
+#ifdef SPEEX_DENOISE_ENABLE
+    SpeexPreprocessState* mSpeexState;
+    int mSpeexFrameSize;
+    int16_t *mSpeexPcmIn;
+#endif
 };
 
 #define STRING_TO_ENUM(string) { #string, string }
@@ -1641,6 +1652,49 @@ static ssize_t in_read(struct audio_stream_in *stream, void* buffer,
      */
     //if (ret == 0 && adev->mic_mute)
     //    memset(buffer, 0, bytes);
+#ifdef SPEEX_DENOISE_ENABLE
+    if(!adev->mic_mute && ret== 0)
+    {
+        int index = 0;
+        int startPos = 0;
+        spx_int16_t* data = (spx_int16_t*) buffer;
+
+        int channel_count = audio_channel_count_from_out_mask(in->channel_mask);
+        int curFrameSize = bytes/(channel_count*sizeof(int16_t));
+        long ch;
+        ALOGV("channel_count:%d",channel_count);
+        if(curFrameSize != 2*in->mSpeexFrameSize)
+            ALOGD("the current request have some error mSpeexFrameSize %d bytes %d ",in->mSpeexFrameSize,bytes);
+
+        while(curFrameSize >= startPos+in->mSpeexFrameSize)
+        {
+
+            for(index = startPos; index< startPos +in->mSpeexFrameSize ;index++ )
+                in->mSpeexPcmIn[index-startPos] = data[index*channel_count]/2 + data[index*channel_count+1]/2;
+
+            speex_preprocess_run(in->mSpeexState,in->mSpeexPcmIn);
+#ifndef TARGET_RK2928
+            for(ch = 0 ; ch < channel_count;ch++)
+                for(index = startPos; index< startPos + in->mSpeexFrameSize ;index++ )
+                {
+                    data[index*channel_count+ch] = in->mSpeexPcmIn[index-startPos];
+                }
+#else
+            for(index = startPos; index< startPos + in->mSpeexFrameSize ;index++ )
+            {
+                int tmp = (int)in->mSpeexPcmIn[index-startPos]+ in->mSpeexPcmIn[index-startPos]/2;
+                data[index*channel_count+0] = tmp > 32767 ? 32767 : (tmp < -32768 ? -32768 : tmp);
+            }
+            for(int ch = 1 ; ch < channel_count;ch++)
+                for(index = startPos; index< startPos + in->mSpeexFrameSize ;index++ )
+                {
+                    data[index*channel_count+ch] = data[index*channel_count+0];
+                }
+#endif
+             startPos += in->mSpeexFrameSize;
+         }
+    }
+#endif
 
 exit:
     if (ret < 0)
@@ -1946,6 +2000,11 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
 
     in->buffer = malloc(pcm_config->period_size * pcm_config->channels
                                                * audio_stream_in_frame_size(&in->stream));
+#ifdef SPEEX_DENOISE_ENABLE
+    in->mSpeexState = NULL;
+    in->mSpeexFrameSize = 0;
+    in->mSpeexPcmIn = NULL;
+#endif
 
     if (!in->buffer) {
         ret = -ENOMEM;
@@ -1970,9 +2029,40 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
         }
     }
 
+#ifdef SPEEX_DENOISE_ENABLE
+    uint32_t size;
+    int denoise = 1;
+    int noiseSuppress = -24;
+    int channel_count = audio_channel_count_from_out_mask(config->channel_mask);
+
+    size = pcm_config->period_size*in->requested_rate/44100;
+    size = ((size + 15) / 16) * 16;
+    size =  size * channel_count * sizeof(int16_t);
+
+    in->mSpeexFrameSize =size/((channel_count*sizeof(int16_t))*2);
+    ALOGD("in->mSpeexFrameSize:%d",in->mSpeexFrameSize);
+    in->mSpeexPcmIn = malloc(sizeof(int16_t)*in->mSpeexFrameSize);
+    if(!in->mSpeexPcmIn){
+        ALOGE("speexPcmIn malloc failed");
+        goto err_speex_malloc;
+    }
+    in->mSpeexState = speex_preprocess_state_init(in->mSpeexFrameSize, in->requested_rate);
+    if(in->mSpeexState == NULL)
+    {
+        ALOGE("speex error");
+        goto err_speex_malloc;
+    }
+
+    speex_preprocess_ctl(in->mSpeexState, SPEEX_PREPROCESS_SET_DENOISE, &denoise);
+    speex_preprocess_ctl(in->mSpeexState, SPEEX_PREPROCESS_SET_NOISE_SUPPRESS, &noiseSuppress);
+
+#endif
+
     *stream_in = &in->stream;
     return 0;
 
+err_speex_malloc:
+    free(in->mSpeexPcmIn);
 err_resampler:
     free(in->buffer);
 err_malloc:
@@ -1990,8 +2080,17 @@ static void adev_close_input_stream(struct audio_hw_device *dev,
         release_resampler(in->resampler);
         in->resampler = NULL;
     }
-#ifdef ALSA_IN_DEBUG 
+#ifdef ALSA_IN_DEBUG
     fclose(in_debug);
+#endif
+
+#ifdef SPEEX_DENOISE_ENABLE
+    if (in->mSpeexState) {
+        speex_preprocess_state_destroy(in->mSpeexState);
+    }
+    if(in->mSpeexPcmIn) {
+        free(in->mSpeexPcmIn);
+    }
 #endif
     free(in->buffer);
     free(stream);
