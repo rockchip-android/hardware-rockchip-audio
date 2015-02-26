@@ -77,11 +77,12 @@ FILE *in_debug;
  *V0.2.0:remove unused variable.
  *V0.3.0:turn off device when do_standby.
  *V0.4.0:turn off device before open pcm.
+ *V0.4.1:Need to re-open the control to fix no sound when suspend.
  *
  *
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.4.0" 
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.4.1" 
 
 struct pcm_config pcm_config = {
     .channels = 2,
@@ -438,6 +439,8 @@ const struct route_config * const route_configs[IN_SOURCE_TAB_SIZE]
     }
 };
 
+struct mixer* pre_mixer;
+
 static void do_out_standby(struct stream_out *out);
 
 /**
@@ -534,13 +537,18 @@ static int set_hdmi_channels(struct audio_device *adev, int channels) {
     return 0;
 }
 
+
+//maybe don't need this function
 static void close_devices(struct audio_device *pre_adev)
 {
     int output_device_id = pre_adev->pre_output_device_id;
     int input_source_id = pre_adev->pre_input_source_id;
     const char *output_route = NULL;
     const char *input_route = NULL;
-	
+
+    if(pre_mixer)	
+        audio_route_reset(pre_adev->ar);
+    
     input_route =
         route_configs[output_device_id][input_source_id]->input_off;
     output_route =
@@ -550,6 +558,8 @@ static void close_devices(struct audio_device *pre_adev)
         audio_route_apply_path(pre_adev->ar, output_route);
     if (input_route)
         audio_route_apply_path(pre_adev->ar, input_route);
+    if(pre_mixer)
+		audio_route_update_mixer(pre_adev->ar);
 }
 
 
@@ -563,8 +573,7 @@ static void select_devices(struct audio_device *adev)
     const char *input_route = NULL;
     int new_route_id;
 
-    close_devices(adev);
-
+    ALOGV("%s",__FUNCTION__);
     audio_route_reset(adev->ar);
 
     enable_hdmi_audio(adev, adev->out_device & AUDIO_DEVICE_OUT_AUX_DIGITAL);
@@ -617,24 +626,24 @@ static void select_devices(struct audio_device *adev)
           output_route ? output_route : "none",
           input_route ? input_route : "none");
 
-    if (output_route)
+    if (output_route){
+        adev->pre_output_device_id = output_device_id;
         audio_route_apply_path(adev->ar, output_route);
-    if (input_route)
+    }
+    if (input_route){
         audio_route_apply_path(adev->ar, input_route);
-	
-    adev->pre_output_device_id = output_device_id;
-    adev->pre_input_source_id = input_source_id;
+        adev->pre_input_source_id = input_source_id;
+    }	
     
     audio_route_update_mixer(adev->ar);
 }
 
 
 static void select_route(struct audio_device *adev,bool on) {
-    ALOGV("=====select_route=======");
     if(on){
         select_devices(adev);	
     }else {
-        close_devices(adev);
+        ALOGE("close device");
     }
 }
 
@@ -722,6 +731,7 @@ static int start_output_stream(struct stream_out *out)
     struct audio_device *adev = out->dev;
     int type;
 
+    ALOGD("%s",__FUNCTION__);
     if (out == adev->outputs[OUTPUT_HDMI]) {
         force_non_hdmi_out_standby(adev);
     } else if (adev->outputs[OUTPUT_HDMI] && !adev->outputs[OUTPUT_HDMI]->standby) {
@@ -744,6 +754,7 @@ static int start_output_stream(struct stream_out *out)
             pcm_close(out->pcm[PCM_CARD]);
             return -ENOMEM;
         }
+        pre_mixer = mixer_open(PCM_CARD);
     }
 
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
@@ -756,6 +767,7 @@ static int start_output_stream(struct stream_out *out)
             pcm_close(out->pcm[PCM_CARD_HDMI]);
             return -ENOMEM;
         }
+        pre_mixer = mixer_open(PCM_CARD_HDMI);
     }
 
     if (out->device & AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET) {
@@ -769,6 +781,7 @@ static int start_output_stream(struct stream_out *out)
             pcm_close(out->pcm[PCM_CARD_SPDIF]);
             return -ENOMEM;
         }
+        pre_mixer = mixer_open(PCM_CARD_SPDIF);
     }
 
     adev->out_device |= out->device;
@@ -1042,14 +1055,15 @@ static void do_out_standby(struct stream_out *out)
         /* re-calculate the set of active devices from other streams */
         adev->out_device = output_devices(out);
 
-        select_route(adev,false);
+        //select_route(adev,false);
+        mixer_close(pre_mixer);
         ALOGD("close device");
 
         /* Skip resetting the mixer if no output device is active */
-        //if (adev->out_device){
-        //    select_route(adev,false);
-        //	ALOGV("========================");
-        //}
+        if (adev->out_device){
+            select_route(adev,true);
+            ALOGD("change device");
+        }
     }
 }
 
