@@ -84,11 +84,11 @@ FILE *in_debug;
  *V0.4.1:Need to re-open the control to fix no sound when suspend.
  *V0.5.0:Merge the mixer operation from legacy_alsa.
  *V0.6.0:Merge speex denoise from legacy_alsa.
- *
+ *V0.7.0:add copyright.
  *
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.6.0"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.7.0"
 
 #define SPEEX_DENOISE_ENABLE
 

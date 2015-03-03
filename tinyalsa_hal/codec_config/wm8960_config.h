@@ -1,5 +1,5 @@
 /*
-** config of codec wm8960
+ * Copyright (C) 2015 Rockchip Electronics Co., Ltd.
 */
 
 #ifndef _WM8960_CONFIG_H_

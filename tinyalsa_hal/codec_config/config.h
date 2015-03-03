@@ -1,5 +1,5 @@
 /*
-** add for tinyalsa setting route by Jear.Chen
+ * Copyright (C) 2015 Rockchip Electronics Co., Ltd.
 */
 
 #ifndef _CONFIG_H_

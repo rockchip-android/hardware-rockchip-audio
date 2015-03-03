@@ -1,5 +1,5 @@
 /*
-** open sound card and route, add by Jear.Chen.
+ * Copyright (C) 2015 Rockchip Electronics Co., Ltd.
 */
 
 #define LOG_TAG "alsa_route"
