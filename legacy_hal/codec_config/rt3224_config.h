@@ -1,5 +1,5 @@
 /*
-** config of rt3224
+ * Copyright (C) 2015 Rockchip Electronics Co., Ltd.
 */
 
 #ifndef _RT3224_CONFIG_H_

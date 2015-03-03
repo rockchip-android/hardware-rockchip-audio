@@ -1,5 +1,5 @@
 /*
-** config of codec rk616
+ * Copyright (C) 2015 Rockchip Electronics Co., Ltd.
 */
 
 #ifndef _RK616_CONFIG_H_

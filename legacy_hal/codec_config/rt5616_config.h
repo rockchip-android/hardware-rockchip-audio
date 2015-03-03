@@ -1,5 +1,5 @@
 /*
-** config of rt5616
+ * Copyright (C) 2015 Rockchip Electronics Co., Ltd.
 */
 
 #ifndef _RT5616_CONFIG_H_

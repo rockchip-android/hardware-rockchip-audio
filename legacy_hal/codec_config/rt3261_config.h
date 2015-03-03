@@ -1,5 +1,5 @@
 /*
-** config of rt3261
+ * Copyright (C) 2015 Rockchip Electronics Co., Ltd.
 */
 
 #ifndef _RT3261_CONFIG_H_

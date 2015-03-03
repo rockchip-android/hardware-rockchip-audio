@@ -1,5 +1,5 @@
 /*
-** config of default
+ * Copyright (C) 2015 Rockchip Electronics Co., Ltd.   
 */
 
 #ifndef _DEFAULT_CONFIG_H_
