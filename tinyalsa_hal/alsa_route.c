@@ -133,6 +133,7 @@ int is_playback_route(unsigned route)
     case VOIP_OFF_ROUTE:
     case HDMI_NORMAL_ROUTE:
     case USB_NORMAL_ROUTE:
+    case SPDIF_NORMAL_ROUTE:
         return 1;
     default:
         ALOGE("is_playback_route() Error route %d", route);
@@ -269,6 +270,8 @@ const struct config_route *get_route_config(unsigned route)
         return &(route_table->usb_normal);
     case USB_CAPTURE_ROUTE:
         return &(route_table->usb_capture);
+    case SPDIF_NORMAL_ROUTE:
+        return &(route_table->spdif_normal);
     default:
         ALOGE("get_route_config() Error route %d", route);
         return NULL;

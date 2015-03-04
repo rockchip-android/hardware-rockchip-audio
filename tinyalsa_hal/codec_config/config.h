@@ -61,6 +61,8 @@ struct config_route_table
 
     const struct config_route usb_normal;
     const struct config_route usb_capture;
+
+    const struct config_route spdif_normal;
 };
 
 #define on 1

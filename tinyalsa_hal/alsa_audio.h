@@ -58,7 +58,9 @@ typedef enum _AudioRoute {
     USB_NORMAL_ROUTE, // 29
     USB_CAPTURE_ROUTE,
 
-    MAX_ROUTE, // 31
+    SPDIF_NORMAL_ROUTE, 
+
+    MAX_ROUTE, // 32
 } AudioRoute;
 
 #define PCM_ERROR_MAX 128

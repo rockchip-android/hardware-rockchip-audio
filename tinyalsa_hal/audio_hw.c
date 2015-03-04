@@ -85,7 +85,7 @@ FILE *in_debug;
  *V0.5.0:Merge the mixer operation from legacy_alsa.
  *V0.6.0:Merge speex denoise from legacy_alsa.
  *V0.7.0:add copyright.
- *
+ *V0.7.1:add support for box audio
  *************************************************************/
 
 #define AUDIO_HAL_VERSION "ALSA Audio Version: V0.7.0"
@@ -821,7 +821,12 @@ static int start_output_stream(struct stream_out *out)
     }
 
     out->disabled = false;
-
+#ifdef BOX_HAL
+        /*BOX hdmi & codec use the same i2s,so only config the codec card*/
+        out->device |= AUDIO_DEVICE_OUT_SPEAKER;
+        out->device &= ~AUDIO_DEVICE_OUT_AUX_DIGITAL;
+#endif
+    ALOGD("Audio HAL start_output_stream  out->device = 0x%x",out->device);
     route_pcm_open(getRouteFromDevice(out->device));
 
     if (out->device & (AUDIO_DEVICE_OUT_SPEAKER |
@@ -841,7 +846,7 @@ static int start_output_stream(struct stream_out *out)
     }
 
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
-        out->pcm[PCM_CARD_SPDIF] = pcm_open(PCM_CARD_HDMI, out->pcm_device,
+        out->pcm[PCM_CARD_HDMI] = pcm_open(PCM_CARD_HDMI, out->pcm_device,
                                             PCM_OUT | PCM_MONOTONIC, &out->config);
         if (out->pcm[PCM_CARD_HDMI] &&
                 !pcm_is_ready(out->pcm[PCM_CARD_HDMI])) {
@@ -853,7 +858,7 @@ static int start_output_stream(struct stream_out *out)
 
     }
 
-    if (out->device & AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET) {
+    if (out->device & AUDIO_DEVICE_OUT_SPDIF) {
         out->pcm[PCM_CARD_SPDIF] = pcm_open(PCM_CARD_SPDIF, out->pcm_device,
                                             PCM_OUT | PCM_MONOTONIC, &out->config);
 

@@ -416,6 +416,12 @@ const struct config_route_table default_config_table = {
         .devices = DEVICES_0,
         .controls_count = 0,
     },
+    //spdif
+    .spdif_normal = {
+        .sound_card = 2,
+        .devices = DEVICES_0,
+        .controls_count = 0,
+    },
 
     //usb audio
     .usb_normal = {
