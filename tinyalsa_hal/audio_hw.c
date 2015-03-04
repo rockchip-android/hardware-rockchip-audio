@@ -88,7 +88,7 @@ FILE *in_debug;
  *V0.7.1:add support for box audio
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.7.0"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.7.1"
 
 #define SPEEX_DENOISE_ENABLE
 

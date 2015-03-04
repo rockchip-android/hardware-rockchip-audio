@@ -29,6 +29,9 @@ LOCAL_C_INCLUDES += \
 	$(call include-path-for, speex)
 
 LOCAL_CFLAGS := -Wno-unused-parameter
+ifneq ($(strip $(TARGET_BOARD_PLATFORM_TABLET)), true)
+LOCAL_CFLAGS += -DBOX_HAL
+endif
 LOCAL_SHARED_LIBRARIES := liblog libcutils libtinyalsa libaudioutils libaudioroute
 LOCAL_STATIC_LIBRARIES := libspeex
 LOCAL_MODULE_TAGS := optional
