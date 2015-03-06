@@ -48,7 +48,7 @@
 
 #define PCM_CARD 0
 #define PCM_CARD_HDMI 1
-#define PCM_CARD_SPDIF 2 
+#define PCM_CARD_SPDIF 2
 #define PCM_CARD_USB 3
 #define PCM_TOTAL 4 
 
@@ -86,11 +86,20 @@ FILE *in_debug;
  *V0.6.0:Merge speex denoise from legacy_alsa.
  *V0.7.0:add copyright.
  *V0.7.1:add support for box audio
+ *V0.7.2:add support for dircet output
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.7.1"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.7.2"
 
 #define SPEEX_DENOISE_ENABLE
+
+#define HW_PARAMS_FLAG_LPCM 0
+#define HW_PARAMS_FLAG_NLPCM 1
+
+#define MEDIA_CFG_AUDIO_BYPASS  "media.cfg.audio.bypass"
+#define MEDIA_CFG_AUDIO_MUL     "media.cfg.audio.mul"
+#define MEDIA_AUDIO_CURRENTPB   "persist.audio.currentplayback"
+
 
 struct pcm_config pcm_config = {
     .channels = 2,
@@ -144,10 +153,19 @@ struct pcm_config pcm_config_hdmi_multi = {
     .format = PCM_FORMAT_S16_LE,
 };
 
+struct pcm_config pcm_config_direct = {
+    .channels = 2,
+    .rate = 48000,
+    .period_size = 1024*6,
+    .period_count = 3,
+    .format = PCM_FORMAT_S16_LE,
+};
+
 enum output_type {
     OUTPUT_DEEP_BUF,      // deep PCM buffers output stream
     OUTPUT_LOW_LATENCY,   // low latency output stream
-    OUTPUT_HDMI,          // HDMI multi channel
+    OUTPUT_HDMI_MULTI,          // HDMI multi channel
+    OUTPUT_DIRECT,
     OUTPUT_TOTAL
 };
 
@@ -195,6 +213,7 @@ struct stream_out {
     audio_channel_mask_t supported_channel_masks[MAX_SUPPORTED_CHANNEL_MASKS + 1];
     bool muted;
     uint64_t written; /* total frames written, not cleared when entering standby */
+    bool output_direct;
 
     struct audio_device *dev;
 };
@@ -665,7 +684,7 @@ static void force_non_hdmi_out_standby(struct audio_device *adev)
 
     for (type = 0; type < OUTPUT_TOTAL; ++type) {
         out = adev->outputs[type];
-        if (type == OUTPUT_HDMI || !out)
+        if (type == OUTPUT_HDMI_MULTI|| !out)
             continue;
         /* This will never recurse more than 2 levels deep. */
         do_out_standby(out);
@@ -800,12 +819,6 @@ uint32_t getRouteFromDevice(uint32_t device)
         return getOutputRouteFromDevice(device);
 }
 
-
-
-
-
-
-
 /* must be called with hw device outputs list, output stream, and hw device mutexes locked */
 static int start_output_stream(struct stream_out *out)
 {
@@ -813,18 +826,30 @@ static int start_output_stream(struct stream_out *out)
     int type;
 
     ALOGD("%s",__FUNCTION__);
-    if (out == adev->outputs[OUTPUT_HDMI]) {
+    if (out == adev->outputs[OUTPUT_HDMI_MULTI]) {
         force_non_hdmi_out_standby(adev);
-    } else if (adev->outputs[OUTPUT_HDMI] && !adev->outputs[OUTPUT_HDMI]->standby) {
+    } else if (adev->outputs[OUTPUT_HDMI_MULTI] && !adev->outputs[OUTPUT_HDMI_MULTI]->standby) {
         out->disabled = true;
         return 0;
     }
 
     out->disabled = false;
 #ifdef BOX_HAL
+    char value[PROPERTY_VALUE_MAX] = "";
+    int cardStrategy = 0;
+
+    property_get(MEDIA_CFG_AUDIO_BYPASS, value, "-1");
+    if(memcmp(value, "true", 4) == 0)
+        out->output_direct = true;
+    else
+        out->output_direct = false;
+    property_get(MEDIA_AUDIO_CURRENTPB, value, "-1");
+    cardStrategy = atoi(value);
+    if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
         /*BOX hdmi & codec use the same i2s,so only config the codec card*/
         out->device |= AUDIO_DEVICE_OUT_SPEAKER;
         out->device &= ~AUDIO_DEVICE_OUT_AUX_DIGITAL;
+    }
 #endif
     ALOGD("Audio HAL start_output_stream  out->device = 0x%x",out->device);
     route_pcm_open(getRouteFromDevice(out->device));
@@ -1130,7 +1155,7 @@ static void do_out_standby(struct stream_out *out)
         }
         out->standby = true;
 
-        if (out == adev->outputs[OUTPUT_HDMI]) {
+        if (out == adev->outputs[OUTPUT_HDMI_MULTI]) {
             /* force standby on low latency output stream so that it can reuse HDMI driver if
              * necessary when restarted */
             force_non_hdmi_out_standby(adev);
@@ -1232,9 +1257,9 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
                 do_out_standby(out);
             }
 
-            if (!out->standby && (out == adev->outputs[OUTPUT_HDMI] ||
-                    !adev->outputs[OUTPUT_HDMI] ||
-                    adev->outputs[OUTPUT_HDMI]->standby)) {
+            if (!out->standby && (out == adev->outputs[OUTPUT_HDMI_MULTI] ||
+                    !adev->outputs[OUTPUT_HDMI_MULTI] ||
+                    adev->outputs[OUTPUT_HDMI_MULTI]->standby)) {
                 adev->out_device = output_devices(out) | val;
 
                 //select_route(adev,true);
@@ -1306,7 +1331,7 @@ static int out_set_volume(struct audio_stream_out *stream, float left,
      * is not allowed to close the stream concurrently with this API
      *  pthread_mutex_lock(&adev->lock_outputs);
      */
-    bool is_HDMI = out == adev->outputs[OUTPUT_HDMI];
+    bool is_HDMI = out == adev->outputs[OUTPUT_HDMI_MULTI];
     /*  pthread_mutex_unlock(&adev->lock_outputs); */
     if (is_HDMI) {
         /* only take left channel into account: the API is for stereo anyway */
@@ -1774,23 +1799,59 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         devices = AUDIO_DEVICE_OUT_SPEAKER;
     out->device = devices;
 
-    if (flags & AUDIO_OUTPUT_FLAG_DIRECT &&
-                   devices == AUDIO_DEVICE_OUT_AUX_DIGITAL) {
-        pthread_mutex_lock(&adev->lock);
-        ret = read_hdmi_channel_masks(adev, out);
-        pthread_mutex_unlock(&adev->lock);
-        if (ret != 0)
-            goto err_open;
-        if (config->sample_rate == 0)
-            config->sample_rate = HDMI_MULTI_DEFAULT_SAMPLING_RATE;
-        if (config->channel_mask == 0)
-            config->channel_mask = AUDIO_CHANNEL_OUT_5POINT1;
-        out->channel_mask = config->channel_mask;
-        out->config = pcm_config_hdmi_multi;
-        out->config.rate = config->sample_rate;
-        out->config.channels = audio_channel_count_from_out_mask(config->channel_mask);
-        out->pcm_device = PCM_DEVICE;
-        type = OUTPUT_HDMI;
+    char value[PROPERTY_VALUE_MAX] = "";
+    if (flags & AUDIO_OUTPUT_FLAG_DIRECT) {
+        if (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL){
+            property_get(MEDIA_CFG_AUDIO_BYPASS, value, "-1");
+            if(memcmp(value, "true", 4) == 0){
+                out->channel_mask = config->channel_mask;
+                out->config = pcm_config_direct;
+                if ((config->sample_rate == 44100) || (config->sample_rate == 48000) 
+                    || (config->sample_rate == 192000)) {
+                    out->config.rate = config->sample_rate;
+                } else {
+                    out->config.rate = 44100;
+                    ALOGE("hdmi bitstream samplerate %d unsupport", config->sample_rate);
+                }
+                out->config.channels = audio_channel_count_from_out_mask(config->channel_mask);
+                if (out->config.channels < 2)
+                    out->config.channels = 2;
+                out->pcm_device = PCM_DEVICE;
+                out->output_direct = true;
+                type = OUTPUT_DIRECT;
+            } else {
+                //property_get(MEDIA_CFG_AUDIO_MUL, value, "-1");
+                pthread_mutex_lock(&adev->lock);
+                ret = read_hdmi_channel_masks(adev, out);
+                pthread_mutex_unlock(&adev->lock);
+                if (ret != 0)
+                    goto err_open;
+                if (config->sample_rate == 0)
+                config->sample_rate = HDMI_MULTI_DEFAULT_SAMPLING_RATE;
+                if (config->channel_mask == 0)
+                    config->channel_mask = AUDIO_CHANNEL_OUT_5POINT1;
+                out->channel_mask = config->channel_mask;
+                out->config = pcm_config_hdmi_multi;
+                out->config.rate = config->sample_rate;
+                out->config.channels = audio_channel_count_from_out_mask(config->channel_mask);
+                out->pcm_device = PCM_DEVICE;
+                out->output_direct = false;
+                type = OUTPUT_HDMI_MULTI;
+            }
+        } else if (devices & AUDIO_DEVICE_OUT_SPDIF) {
+            out->channel_mask = config->channel_mask;
+            out->config = pcm_config_direct;
+            if ((config->sample_rate == 48000) || (config->sample_rate == 44100)) {
+                out->config.rate = config->sample_rate;
+            } else {
+                out->config.rate = 44100;
+                ALOGE("spdif passthrough samplerate %d is unsupport",config->sample_rate);
+            }
+            out->config.channels = audio_channel_count_from_out_mask(config->channel_mask);
+            out->pcm_device = PCM_DEVICE;
+            out->output_direct = true;
+            type = OUTPUT_DIRECT;
+        }
     } else if (flags & AUDIO_OUTPUT_FLAG_DEEP_BUFFER) {
         out->config = pcm_config_deep;
         out->pcm_device = PCM_DEVICE_DEEP;
@@ -1800,6 +1861,9 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->pcm_device = PCM_DEVICE;
         type = OUTPUT_LOW_LATENCY;
     }
+    int is_lpcm_stream = HW_PARAMS_FLAG_LPCM;
+    if (out->output_direct)
+        is_lpcm_stream = HW_PARAMS_FLAG_NLPCM;
 
     out->stream.common.get_sample_rate = out_get_sample_rate;
     out->stream.common.set_sample_rate = out_set_sample_rate;

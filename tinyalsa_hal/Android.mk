@@ -29,7 +29,7 @@ LOCAL_C_INCLUDES += \
 	$(call include-path-for, speex)
 
 LOCAL_CFLAGS := -Wno-unused-parameter
-ifneq ($(strip $(TARGET_BOARD_PLATFORM_TABLET)), true)
+ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)), box)
 LOCAL_CFLAGS += -DBOX_HAL
 endif
 LOCAL_SHARED_LIBRARIES := liblog libcutils libtinyalsa libaudioutils libaudioroute
