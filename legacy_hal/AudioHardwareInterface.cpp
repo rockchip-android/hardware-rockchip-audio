@@ -76,6 +76,11 @@ status_t AudioStreamOut::getNextWriteTimestamp(int64_t *timestamp)
     return INVALID_OPERATION;
 }
 
+status_t AudioStreamOut::getPresentationPosition(uint64_t *frames, struct timespec *timestamp)
+{
+    return INVALID_OPERATION;
+}
+
 AudioStreamIn::~AudioStreamIn() {}
 
 AudioHardwareBase::AudioHardwareBase()

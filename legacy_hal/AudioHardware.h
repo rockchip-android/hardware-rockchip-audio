@@ -126,6 +126,23 @@ public:
         uint32_t devices, int *format, uint32_t *channels,
         uint32_t *sampleRate, status_t *status,
         AudioSystem::audio_in_acoustics acoustics);
+
+    virtual status_t setMasterMute(bool muted) ;
+
+
+    virtual int createAudioPatch(unsigned int num_sources,
+                               const struct audio_port_config *sources,
+                               unsigned int num_sinks,
+                               const struct audio_port_config *sinks,
+                               audio_patch_handle_t *handle) ;
+
+    virtual int releaseAudioPatch(audio_patch_handle_t handle) ;
+
+    virtual int getAudioPort(struct audio_port *port) ;
+
+    virtual int setAudioPortConfig(const struct audio_port_config *config) ;
+
+
     virtual android_audio_legacy::AudioStreamOut* openOutputStreamWithFlags(uint32_t devices,
                                           audio_output_flags_t flags,
                                           int *format,

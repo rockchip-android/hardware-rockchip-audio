@@ -246,6 +246,32 @@ android_audio_legacy::AudioStreamOut* AudioHardware::openOutputStreamWithFlags(u
 {
     return openOutputStream(devices, format, channels, sampleRate, status);
 }
+
+status_t AudioHardware::setMasterMute(bool muted){
+    return INVALID_OPERATION;
+}
+
+
+int AudioHardware::createAudioPatch(unsigned int num_sources,
+                               const struct audio_port_config *sources,
+                               unsigned int num_sinks,
+                               const struct audio_port_config *sinks,
+                               audio_patch_handle_t *handle){
+        return 0;
+}
+
+int AudioHardware::releaseAudioPatch(audio_patch_handle_t handle){
+        return 0;
+}
+
+int AudioHardware::getAudioPort(struct audio_port *port) {
+        return 0;
+}
+
+int AudioHardware::setAudioPortConfig(const struct audio_port_config *config) {
+        return 0;
+}
+
 void AudioHardware::closeOutputStream(android_audio_legacy::AudioStreamOut* out) {
      android::sp <AudioStreamOutALSA> spOut;
     {
@@ -1467,7 +1493,6 @@ ssize_t AudioHardware::AudioStreamInALSA::read(void* buffer, ssize_t bytes)
 				
 				while(curFrameSize >= startPos+mSpeexFrameSize)
 				{
-					//ALOGI("--->mSpeexFrameSize %d bytes %d startPos %d",mSpeexFrameSize,bytes,startPos);
 										
 					for(index = startPos; index< startPos + mSpeexFrameSize ;index++ )
 						mSpeexPcmIn[index-startPos] = data[index*mChannelCount]/2 + data[index*mChannelCount+1]/2;
