@@ -93,6 +93,7 @@ FILE *in_debug;
  *V0.7.0:add copyright.
  *V0.7.1:add support for box audio
  *V0.7.2:add support for dircet output
+ *V0.8.0:update the direct output for box, add the DVI mode
  *************************************************************/
 
 #define AUDIO_HAL_VERSION "ALSA Audio Version: V0.7.2"
@@ -102,9 +103,13 @@ FILE *in_debug;
 #define HW_PARAMS_FLAG_LPCM 0
 #define HW_PARAMS_FLAG_NLPCM 1
 
+#define HDMI_AUIOINFO_NODE      "/sys/class/display/HDMI/audioinfo"
+#define MEDIA_SINK_AUDIO        "media.sink.audio"
 #define MEDIA_CFG_AUDIO_BYPASS  "media.cfg.audio.bypass"
 #define MEDIA_CFG_AUDIO_MUL     "media.cfg.audio.mul"
 #define MEDIA_AUDIO_CURRENTPB   "persist.audio.currentplayback"
+#define BOX_AUDIO_PARAMS        "persist.audio.parameter"
+#define DEFAULT_AUDIO_PARAMS    "44100,0002,no"
 
 
 struct pcm_config pcm_config = {
@@ -162,7 +167,7 @@ struct pcm_config pcm_config_hdmi_multi = {
 struct pcm_config pcm_config_direct = {
     .channels = 2,
     .rate = 48000,
-    .period_size = 1024*6,
+    .period_size = 1024,
     .period_count = 3,
     .format = PCM_FORMAT_S16_LE,
 };
@@ -825,9 +830,25 @@ uint32_t getRouteFromDevice(uint32_t device)
         return getOutputRouteFromDevice(device);
 }
 
+static int read_hdmi_audioinfo(void)
+{
+    FILE *fd = NULL;
+    char buf[PROPERTY_VALUE_MAX]="";
+
+    fd = fopen(HDMI_AUIOINFO_NODE, "r");
+    memset(buf, 0, PROPERTY_VALUE_MAX);
+    if(fd != NULL) {
+        fread(buf, 1, PROPERTY_VALUE_MAX, fd);
+        fclose(fd);
+    }
+    property_set(MEDIA_SINK_AUDIO, buf);
+    return 0;
+}
+
 /* must be called with hw device outputs list, output stream, and hw device mutexes locked */
 static int start_output_stream(struct stream_out *out)
 {
+    char value[PROPERTY_VALUE_MAX] = "";
     struct audio_device *adev = out->dev;
     int type;
 
@@ -840,25 +861,58 @@ static int start_output_stream(struct stream_out *out)
     }
 
     out->disabled = false;
+    read_hdmi_audioinfo();
 #ifdef BOX_HAL
-    char value[PROPERTY_VALUE_MAX] = "";
+    
     int cardStrategy = 0;
 
     property_get(MEDIA_CFG_AUDIO_BYPASS, value, "-1");
-    if(memcmp(value, "true", 4) == 0)
-        out->output_direct = true;
-    else
+    if(memcmp(value, "true", 4) == 0){
+        property_get(BOX_AUDIO_PARAMS, value, DEFAULT_AUDIO_PARAMS);
+        ALOGW("start_output_stream  BOX_AUDIO_PARAMS = %s",value);
+        if (strstr (value,"yes")) {
+            ALOGD("Audio output direct!");
+            out->config = pcm_config_direct;
+            out->output_direct = true;
+            if (strstr (value,"192000"))
+                out->config.rate = 192000;
+        } else {
+            out->output_direct = false;
+            out->config = pcm_config;
+        }
+    } else {
         out->output_direct = false;
-    property_get(MEDIA_AUDIO_CURRENTPB, value, "-1");
-    cardStrategy = atoi(value);
+        out->config = pcm_config;
+    }
+
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
         /*BOX hdmi & codec use the same i2s,so only config the codec card*/
         out->device |= AUDIO_DEVICE_OUT_SPEAKER;
         out->device &= ~AUDIO_DEVICE_OUT_AUX_DIGITAL;
     }
+
+    ALOGD("start_output_stream out->config.sample = %d,channels = %d", out->config.rate, out->config.channels);
 #endif
     ALOGD("Audio HAL start_output_stream  out->device = 0x%x",out->device);
     route_pcm_open(getRouteFromDevice(out->device));
+
+    if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
+        property_get(MEDIA_SINK_AUDIO, value, "invalid");
+        if (strstr(value,"LPCM")) {
+            out->pcm[PCM_CARD_HDMI] = pcm_open(PCM_CARD_HDMI, out->pcm_device,
+                                                PCM_OUT | PCM_MONOTONIC, &out->config);
+            if (out->pcm[PCM_CARD_HDMI] &&
+                    !pcm_is_ready(out->pcm[PCM_CARD_HDMI])) {
+                ALOGE("pcm_open(PCM_CARD_SPDIF) failed: %s",
+                      pcm_get_error(out->pcm[PCM_CARD_HDMI]));
+                pcm_close(out->pcm[PCM_CARD_HDMI]);
+                return -ENOMEM;
+            }
+        } else {
+           ALOGD("The current HDMI is DVI mode");
+           out->device |= AUDIO_DEVICE_OUT_SPEAKER;
+        }
+    }
 
     if (out->device & (AUDIO_DEVICE_OUT_SPEAKER |
                        AUDIO_DEVICE_OUT_WIRED_HEADSET |
@@ -871,19 +925,6 @@ static int start_output_stream(struct stream_out *out)
             ALOGE("pcm_open(PCM_CARD) failed: %s",
                   pcm_get_error(out->pcm[PCM_CARD]));
             pcm_close(out->pcm[PCM_CARD]);
-            return -ENOMEM;
-        }
-
-    }
-
-    if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
-        out->pcm[PCM_CARD_HDMI] = pcm_open(PCM_CARD_HDMI, out->pcm_device,
-                                            PCM_OUT | PCM_MONOTONIC, &out->config);
-        if (out->pcm[PCM_CARD_HDMI] &&
-                !pcm_is_ready(out->pcm[PCM_CARD_HDMI])) {
-            ALOGE("pcm_open(PCM_CARD_SPDIF) failed: %s",
-                  pcm_get_error(out->pcm[PCM_CARD_HDMI]));
-            pcm_close(out->pcm[PCM_CARD_HDMI]);
             return -ENOMEM;
         }
 
@@ -1867,9 +1908,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->pcm_device = PCM_DEVICE;
         type = OUTPUT_LOW_LATENCY;
     }
-    int is_lpcm_stream = HW_PARAMS_FLAG_LPCM;
-    if (out->output_direct)
-        is_lpcm_stream = HW_PARAMS_FLAG_NLPCM;
 
     out->stream.common.get_sample_rate = out_get_sample_rate;
     out->stream.common.set_sample_rate = out_set_sample_rate;
