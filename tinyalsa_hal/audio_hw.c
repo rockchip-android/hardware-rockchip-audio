@@ -96,7 +96,7 @@ FILE *in_debug;
  *V0.8.0:update the direct output for box, add the DVI mode
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.7.2"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.8.0"
 
 #define SPEEX_DENOISE_ENABLE
 
@@ -107,8 +107,6 @@ FILE *in_debug;
 #define MEDIA_SINK_AUDIO        "media.sink.audio"
 #define MEDIA_CFG_AUDIO_BYPASS  "media.cfg.audio.bypass"
 #define MEDIA_CFG_AUDIO_MUL     "media.cfg.audio.mul"
-#define MEDIA_AUDIO_CURRENTPB   "persist.audio.currentplayback"
-#define BOX_AUDIO_PARAMS        "persist.audio.parameter"
 #define DEFAULT_AUDIO_PARAMS    "44100,0002,no"
 
 
@@ -863,35 +861,11 @@ static int start_output_stream(struct stream_out *out)
     out->disabled = false;
     read_hdmi_audioinfo();
 #ifdef BOX_HAL
-    
-    int cardStrategy = 0;
-
-    property_get(MEDIA_CFG_AUDIO_BYPASS, value, "-1");
-    if(memcmp(value, "true", 4) == 0){
-        property_get(BOX_AUDIO_PARAMS, value, DEFAULT_AUDIO_PARAMS);
-        ALOGW("start_output_stream  BOX_AUDIO_PARAMS = %s",value);
-        if (strstr (value,"yes")) {
-            ALOGD("Audio output direct!");
-            out->config = pcm_config_direct;
-            out->output_direct = true;
-            if (strstr (value,"192000"))
-                out->config.rate = 192000;
-        } else {
-            out->output_direct = false;
-            out->config = pcm_config;
-        }
-    } else {
-        out->output_direct = false;
-        out->config = pcm_config;
-    }
-
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
         /*BOX hdmi & codec use the same i2s,so only config the codec card*/
         out->device |= AUDIO_DEVICE_OUT_SPEAKER;
         out->device &= ~AUDIO_DEVICE_OUT_AUX_DIGITAL;
     }
-
-    ALOGD("start_output_stream out->config.sample = %d,channels = %d", out->config.rate, out->config.channels);
 #endif
     ALOGD("Audio HAL start_output_stream  out->device = 0x%x",out->device);
     route_pcm_open(getRouteFromDevice(out->device));
@@ -1856,6 +1830,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                 if ((config->sample_rate == 44100) || (config->sample_rate == 48000) 
                     || (config->sample_rate == 192000)) {
                     out->config.rate = config->sample_rate;
+                    if (config->sample_rate == 192000)
+                        out->config.period_size = 1024 * 6;
                 } else {
                     out->config.rate = 44100;
                     ALOGE("hdmi bitstream samplerate %d unsupport", config->sample_rate);
@@ -1895,6 +1871,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                 ALOGE("spdif passthrough samplerate %d is unsupport",config->sample_rate);
             }
             out->config.channels = audio_channel_count_from_out_mask(config->channel_mask);
+            devices = AUDIO_DEVICE_OUT_SPDIF;
             out->pcm_device = PCM_DEVICE;
             out->output_direct = true;
             type = OUTPUT_DIRECT;
