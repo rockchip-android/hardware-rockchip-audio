@@ -46,10 +46,13 @@
 #include <speex/speex_preprocess.h>
 
 #ifdef BOX_HAL
-#define PCM_CARD 0
+int PCM_CARD = 0;
+int PCM_CARD_HDMI = 0;
+int PCM_CARD_SPDIF = 1;
+/*#define PCM_CARD 0
 #define PCM_CARD_HDMI 0
 #define PCM_CARD_SPDIF 1
-#define PCM_CARD_USB 3
+#define PCM_CARD_USB 3*/
 #define PCM_TOTAL 4
 #else
 #define PCM_CARD 0
@@ -104,10 +107,12 @@ FILE *in_debug;
 #define HW_PARAMS_FLAG_NLPCM 1
 
 #define HDMI_AUIOINFO_NODE      "/sys/class/display/HDMI/audioinfo"
+#define SND_CARD0_NODE          "/proc/asound/card0/id"
+#define SND_CARD1_NODE          "/proc/asound/card1/id"
+#define SND_CARD2_NODE          "/proc/asound/card2/id"
 #define MEDIA_SINK_AUDIO        "media.sink.audio"
 #define MEDIA_CFG_AUDIO_BYPASS  "media.cfg.audio.bypass"
 #define MEDIA_CFG_AUDIO_MUL     "media.cfg.audio.mul"
-#define DEFAULT_AUDIO_PARAMS    "44100,0002,no"
 
 
 struct pcm_config pcm_config = {
@@ -843,6 +848,33 @@ static int read_hdmi_audioinfo(void)
     return 0;
 }
 
+#ifdef BOX_HAL
+static int read_snd_card_info(void)
+{
+    FILE *fd = NULL;
+    char buf[20] = "";
+
+    fd = fopen(SND_CARD1_NODE,"r");
+    memset(buf, 0, sizeof(buf));
+    if (fd != NULL) {
+        fread(buf,1,sizeof(buf),fd);
+        fclose(fd);
+    }
+    ALOGD("read_snd_card_info buf = %s",buf);
+    if (strstr (buf, "SPDIF")) {
+       ALOGD("now is 2 snd card mode");
+       PCM_CARD = 0;
+       PCM_CARD_HDMI = 0;
+       PCM_CARD_SPDIF = 1;
+    } else if (strstr(buf, "HDMI")) {
+        ALOGD("now is 3snd card mode");
+        PCM_CARD = 0;
+        PCM_CARD_HDMI = 1;
+        PCM_CARD_SPDIF = 2;
+    }
+    return 0;
+}
+#endif
 /* must be called with hw device outputs list, output stream, and hw device mutexes locked */
 static int start_output_stream(struct stream_out *out)
 {
@@ -2261,6 +2293,9 @@ static int adev_open(const hw_module_t* module, const char* name,
     if (property_get("audio_hal.in_period_size", value, NULL) > 0)
         pcm_config_in.period_size = atoi(value);
 
+#ifdef BOX_HAL
+    read_snd_card_info();
+#endif
     return 0;
 }
 
