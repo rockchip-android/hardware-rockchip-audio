@@ -170,9 +170,9 @@ struct pcm_config pcm_config_hdmi_multi = {
 struct pcm_config pcm_config_direct = {
     .channels = 2,
     .rate = 48000,
-    .period_size = 1024,
+    .period_size = 1024*8,
     .period_count = 3,
-    .format = PCM_FORMAT_S16_LE,
+    .format = PCM_FORMAT_S24_LE,
 };
 
 enum output_type {
@@ -181,6 +181,11 @@ enum output_type {
     OUTPUT_HDMI_MULTI,          // HDMI multi channel
     OUTPUT_DIRECT,
     OUTPUT_TOTAL
+};
+
+struct direct_mode_t {
+    int output_mode;
+    char* hbr_Buf;
 };
 
 struct audio_device {
@@ -483,6 +488,7 @@ const struct route_config * const route_configs[IN_SOURCE_TAB_SIZE]
 };
 
 struct mixer* pre_mixer;
+struct direct_mode_t direct_mode = {HW_PARAMS_FLAG_LPCM, NULL};
 
 static void do_out_standby(struct stream_out *out);
 
@@ -1230,6 +1236,11 @@ static void do_out_standby(struct stream_out *out)
             route_pcm_open(getRouteFromDevice(adev->out_device));
             ALOGD("change device");
         }
+    	if (direct_mode.hbr_Buf) {
+    	    free (direct_mode.hbr_Buf);
+    	    direct_mode.hbr_Buf = NULL;
+    	}
+    	direct_mode.output_mode = HW_PARAMS_FLAG_LPCM;
     }
 }
 
@@ -1402,6 +1413,9 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
     struct audio_device *adev = out->dev;
     int i;
 
+    static int scount = 0;
+    size_t newbytes = bytes*2;
+    
     /* FIXME This comment is no longer correct
      * acquiring hw device mutex systematically is useful if a low
      * priority thread is waiting on the output stream mutex - e.g.
@@ -1431,19 +1445,88 @@ false_alarm:
         goto exit;
     }
 
+#ifdef BOX_HAL
+    if ((direct_mode.output_mode == HW_PARAMS_FLAG_NLPCM) && (out->config.rate != 44100)) {
+        if (!direct_mode.hbr_Buf) {
+            ALOGD("new hbr buffer!");
+            direct_mode.hbr_Buf = (char *)malloc(newbytes);
+        }
+
+        char *ptr = (char*)buffer;
+        char *ptr_end = (char*)buffer+bytes;
+        char *newptr = (char*)direct_mode.hbr_Buf;
+        memset(direct_mode.hbr_Buf, 0x0, newbytes);
+
+        while(ptr<ptr_end){
+            newptr[0] = (ptr[0]&0x1f)<<3;
+            newptr[1] = ((ptr[0]&0xe0)>>5)|((ptr[1]&0x1f)<<3);
+            newptr[2] = (ptr[1]&0xe0)>>5;
+            newptr[3] = 0x00;
+            if ((scount == 0) || (scount == 1)) {//B bit
+                newptr[2] |= 0x88;
+            } else if((scount == 2) || (scount == 3)) {
+                newptr[2] |= 0x28;
+            } else if((scount == 50) || (scount == 51)) {
+                newptr[2] |= 0x28;
+            } else if((scount == 66) || (scount == 67)) {
+                newptr[2] |= 0x28;
+            } else {
+                newptr[2] |= 0x08;
+            }
+            scount++;
+            scount %= 384;
+            ptr +=2;
+            newptr +=4;
+        }
+    }
+#endif
     if (out->muted)
         memset((void *)buffer, 0, bytes);
-
+#if 0        
+    char value[PROPERTY_VALUE_MAX];
+    property_get("media.playback.control", value, NULL);
+    prop_pcm = atoi(value);
+    if(prop_pcm)
+    {
+            ALOGI("dump pcm file.\n");
+            static int fd=0;
+            static int offset = 0;
+            fd=fopen("/data/debug.pcm","wb");
+            if(fd == NULL)
+            {
+                   ALOGD("DEBUG open /data/media/debug_pcmfile error =%d ,errno = %d",fd,errno);
+                   prop_pcm = 0;
+                   offset = 0;
+            }
+            fseek(fd,offset,SEEK_SET);
+            fwrite(direct_mode.hbr_Buf,newbytes,1,fd);
+            offset += newbytes;
+            fflush(fd);
+            if(offset >= 32*1024*1024)
+            {
+                    prop_pcm = 0;
+                    offset = 0;
+                    fclose(fd);
+                    system("setprop media.playback.control 0");
+                    ALOGD("TEST playback pcmfile end");
+            }
+    }
+#endif
     /* Write to all active PCMs */
-    for (i = 0; i < PCM_TOTAL; i++)
-        if (out->pcm[i]) {
-            ret = pcm_write(out->pcm[i], (void *)buffer, bytes);
-            if (ret != 0)
-                break;
-        }
+    if (direct_mode.output_mode) {
+        ret = pcm_write(out->pcm[0], (void *)direct_mode.hbr_Buf, newbytes);
+        if (ret != 0)
+           return ret;
+    } else {
+        for (i = 0; i < PCM_TOTAL; i++)
+            if (out->pcm[i]) {
+                ret = pcm_write(out->pcm[i], (void *)buffer, bytes);
+                if (ret != 0)
+                    break;
+            }
+    }
     if (ret == 0)
         out->written += bytes / (out->config.channels * sizeof(short));
-
 exit:
     pthread_mutex_unlock(&out->lock);
 final_exit:
@@ -1862,8 +1945,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                 if ((config->sample_rate == 44100) || (config->sample_rate == 48000) 
                     || (config->sample_rate == 192000)) {
                     out->config.rate = config->sample_rate;
-                    if (config->sample_rate == 192000)
-                        out->config.period_size = 1024 * 6;
                 } else {
                     out->config.rate = 44100;
                     ALOGE("hdmi bitstream samplerate %d unsupport", config->sample_rate);
@@ -1917,6 +1998,10 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->pcm_device = PCM_DEVICE;
         type = OUTPUT_LOW_LATENCY;
     }
+    
+    direct_mode.output_mode = HW_PARAMS_FLAG_LPCM;
+    if ((type == OUTPUT_DIRECT) && (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL))
+        direct_mode.output_mode = HW_PARAMS_FLAG_NLPCM;
 
     out->stream.common.get_sample_rate = out_get_sample_rate;
     out->stream.common.set_sample_rate = out_set_sample_rate;
