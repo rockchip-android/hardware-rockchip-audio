@@ -55,10 +55,12 @@ typedef enum _AudioRoute {
 
     HDMI_NORMAL_ROUTE, // 28
 
+    SPDIF_NORMAL_ROUTE, 
+
     USB_NORMAL_ROUTE, // 29
     USB_CAPTURE_ROUTE,
 
-    SPDIF_NORMAL_ROUTE, 
+
 
     MAX_ROUTE, // 32
 } AudioRoute;

@@ -1945,6 +1945,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                 if ((config->sample_rate == 44100) || (config->sample_rate == 48000) 
                     || (config->sample_rate == 192000)) {
                     out->config.rate = config->sample_rate;
+                    if (config->sample_rate == 48000)
+                        out->config.format = PCM_FORMAT_S16_LE;
                 } else {
                     out->config.rate = 44100;
                     ALOGE("hdmi bitstream samplerate %d unsupport", config->sample_rate);
@@ -1979,6 +1981,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             out->config = pcm_config_direct;
             if ((config->sample_rate == 48000) || (config->sample_rate == 44100)) {
                 out->config.rate = config->sample_rate;
+                out->config.format = PCM_FORMAT_S16_LE;
+                out->config.period_size = 2048;
             } else {
                 out->config.rate = 44100;
                 ALOGE("spdif passthrough samplerate %d is unsupport",config->sample_rate);
@@ -2000,7 +2004,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     }
     
     direct_mode.output_mode = HW_PARAMS_FLAG_LPCM;
-    if ((type == OUTPUT_DIRECT) && (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL))
+    if ((type == OUTPUT_DIRECT) && (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL) && (out->config.rate == 192000))
         direct_mode.output_mode = HW_PARAMS_FLAG_NLPCM;
 
     out->stream.common.get_sample_rate = out_get_sample_rate;

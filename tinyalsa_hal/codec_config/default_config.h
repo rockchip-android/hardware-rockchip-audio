@@ -409,16 +409,24 @@ const struct config_route_table default_config_table = {
         .controls = default_voip_off_controls,
         .controls_count = sizeof(default_voip_off_controls) / sizeof(struct config_control),
     },
-
+#ifdef BOX_HAL
+    //hdmi
+    .hdmi_normal = {
+        .sound_card = 0,
+        .devices = DEVICES_0,
+        .controls_count = 0,
+    },
+#else
     //hdmi
     .hdmi_normal = {
         .sound_card = 1,
         .devices = DEVICES_0,
         .controls_count = 0,
     },
+#endif
     //spdif
     .spdif_normal = {
-        .sound_card = 2,
+        .sound_card = 1,
         .devices = DEVICES_0,
         .controls_count = 0,
     },

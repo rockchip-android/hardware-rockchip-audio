@@ -348,7 +348,7 @@ int route_set_controls(unsigned route)
         return -EINVAL;
     }
 #else //primary input maybe used for usb
-    if (route > HDMI_NORMAL_ROUTE &&
+    if (route > SPDIF_NORMAL_ROUTE &&
         route != USB_CAPTURE_ROUTE) {
         ALOGV("route %d error for codec or hdmi!", route);
         return -EINVAL;
@@ -399,6 +399,7 @@ void route_pcm_open(uint32_t route)
 #else //primary input maybe used for usb
     if (route > BLUETOOTH_SOC_MIC_CAPTURE_ROUTE &&
         route != HDMI_NORMAL_ROUTE &&
+        route != SPDIF_NORMAL_ROUTE &&
         route != USB_CAPTURE_ROUTE) {
         ALOGV("route %d error for codec or hdmi!", route);
         goto __exit;
