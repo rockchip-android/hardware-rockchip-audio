@@ -172,7 +172,7 @@ struct pcm_config pcm_config_direct = {
     .rate = 48000,
     .period_size = 1024*8,
     .period_count = 3,
-    .format = PCM_FORMAT_S24_LE,
+    .format = PCM_FORMAT_S16_LE,
 };
 
 enum output_type {
@@ -1925,6 +1925,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     int ret;
     enum output_type type;
 
+    ALOGD("audio hal adev_open_output_stream devices = 0x%x, flags = %d",devices, flags);
     out = (struct stream_out *)calloc(1, sizeof(struct stream_out));
     if (!out)
         return -ENOMEM;
@@ -1945,8 +1946,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                 if ((config->sample_rate == 44100) || (config->sample_rate == 48000) 
                     || (config->sample_rate == 192000)) {
                     out->config.rate = config->sample_rate;
-                    if (config->sample_rate == 48000)
-                        out->config.format = PCM_FORMAT_S16_LE;
                 } else {
                     out->config.rate = 44100;
                     ALOGE("hdmi bitstream samplerate %d unsupport", config->sample_rate);
@@ -2004,8 +2003,13 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     }
     
     direct_mode.output_mode = HW_PARAMS_FLAG_LPCM;
-    if ((type == OUTPUT_DIRECT) && (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL) && (out->config.rate == 192000))
+    if ((type == OUTPUT_DIRECT)
+	&& (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL)
+	/*&& (out->config.rate == 192000)
+	&& (out->config.channels == 8)*/) {
         direct_mode.output_mode = HW_PARAMS_FLAG_NLPCM;
+        out->config.format = PCM_FORMAT_S24_LE;
+    }
 
     out->stream.common.get_sample_rate = out_get_sample_rate;
     out->stream.common.set_sample_rate = out_set_sample_rate;
