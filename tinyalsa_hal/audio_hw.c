@@ -489,6 +489,7 @@ const struct route_config * const route_configs[IN_SOURCE_TAB_SIZE]
 
 struct mixer* pre_mixer;
 struct direct_mode_t direct_mode = {HW_PARAMS_FLAG_LPCM, NULL};
+static int scount = 0;
 
 static void do_out_standby(struct stream_out *out);
 
@@ -915,7 +916,7 @@ static int start_output_stream(struct stream_out *out)
                                                 PCM_OUT | PCM_MONOTONIC, &out->config);
             if (out->pcm[PCM_CARD_HDMI] &&
                     !pcm_is_ready(out->pcm[PCM_CARD_HDMI])) {
-                ALOGE("pcm_open(PCM_CARD_SPDIF) failed: %s",
+                ALOGE("pcm_open(PCM_CARD_HDMI) failed: %s",
                       pcm_get_error(out->pcm[PCM_CARD_HDMI]));
                 pcm_close(out->pcm[PCM_CARD_HDMI]);
                 return -ENOMEM;
@@ -1240,7 +1241,7 @@ static void do_out_standby(struct stream_out *out)
     	    free (direct_mode.hbr_Buf);
     	    direct_mode.hbr_Buf = NULL;
     	}
-    	direct_mode.output_mode = HW_PARAMS_FLAG_LPCM;
+        scount = 0;
     }
 }
 
@@ -1404,6 +1405,7 @@ static int out_set_volume(struct audio_stream_out *stream, float left,
     }
     return -ENOSYS;
 }
+int prop_pcm;
 
 static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
                          size_t bytes)
@@ -1413,8 +1415,7 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
     struct audio_device *adev = out->dev;
     int i;
 
-    static int scount = 0;
-    size_t newbytes = bytes*2;
+    size_t newbytes = bytes * 2;
     
     /* FIXME This comment is no longer correct
      * acquiring hw device mutex systematically is useful if a low
@@ -1461,7 +1462,6 @@ false_alarm:
             newptr[0] = (ptr[0]&0x1f)<<3;
             newptr[1] = ((ptr[0]&0xe0)>>5)|((ptr[1]&0x1f)<<3);
             newptr[2] = (ptr[1]&0xe0)>>5;
-            newptr[3] = 0x00;
             if ((scount == 0) || (scount == 1)) {//B bit
                 newptr[2] |= 0x88;
             } else if((scount == 2) || (scount == 3)) {
@@ -1473,6 +1473,7 @@ false_alarm:
             } else {
                 newptr[2] |= 0x08;
             }
+            newptr[3] = 0x00;
             scount++;
             scount %= 384;
             ptr +=2;
@@ -1482,7 +1483,7 @@ false_alarm:
 #endif
     if (out->muted)
         memset((void *)buffer, 0, bytes);
-#if 0        
+#if 0
     char value[PROPERTY_VALUE_MAX];
     property_get("media.playback.control", value, NULL);
     prop_pcm = atoi(value);
@@ -1491,29 +1492,28 @@ false_alarm:
             ALOGI("dump pcm file.\n");
             static int fd=0;
             static int offset = 0;
-            fd=fopen("/data/debug.pcm","wb");
-            if(fd == NULL)
-            {
-                   ALOGD("DEBUG open /data/media/debug_pcmfile error =%d ,errno = %d",fd,errno);
-                   prop_pcm = 0;
-                   offset = 0;
+            if(fd == NULL) {
+                    fd=fopen("/data/debug.pcm","wb+");
+                    if(fd == NULL) {
+                        ALOGD("DEBUG open /data/media/debug_pcmfile error =%d ,errno = %d",fd,errno);
+                        prop_pcm = 0;
+                        offset = 0;
+                    }
             }
-            fseek(fd,offset,SEEK_SET);
             fwrite(direct_mode.hbr_Buf,newbytes,1,fd);
             offset += newbytes;
             fflush(fd);
-            if(offset >= 32*1024*1024)
-            {
+            if(offset >= 32*1024*1024) {
+                    fclose(fd);
                     prop_pcm = 0;
                     offset = 0;
-                    fclose(fd);
                     system("setprop media.playback.control 0");
                     ALOGD("TEST playback pcmfile end");
             }
     }
 #endif
     /* Write to all active PCMs */
-    if (direct_mode.output_mode) {
+    if (direct_mode.hbr_Buf) {
         ret = pcm_write(out->pcm[0], (void *)direct_mode.hbr_Buf, newbytes);
         if (ret != 0)
            return ret;
