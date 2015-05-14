@@ -97,9 +97,10 @@ FILE *in_debug;
  *V0.7.1:add support for box audio
  *V0.7.2:add support for dircet output
  *V0.8.0:update the direct output for box, add the DVI mode
+ *V1.0.0:stable version
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V0.8.0"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.0"
 
 #define SPEEX_DENOISE_ENABLE
 
@@ -902,8 +903,8 @@ static int start_output_stream(struct stream_out *out)
 #ifdef BOX_HAL
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
         /*BOX hdmi & codec use the same i2s,so only config the codec card*/
-        out->device |= AUDIO_DEVICE_OUT_SPEAKER;
-        out->device &= ~AUDIO_DEVICE_OUT_AUX_DIGITAL;
+        //out->device |= AUDIO_DEVICE_OUT_SPEAKER;
+        //out->device &= ~AUDIO_DEVICE_OUT_AUX_DIGITAL;
     }
 #endif
     ALOGD("Audio HAL start_output_stream  out->device = 0x%x",out->device);
@@ -1479,6 +1480,8 @@ false_alarm:
             ptr +=2;
             newptr +=4;
         }
+    } else {
+        direct_mode.output_mode == HW_PARAMS_FLAG_LPCM;
     }
 #endif
     if (out->muted)
@@ -1513,7 +1516,7 @@ false_alarm:
     }
 #endif
     /* Write to all active PCMs */
-    if (direct_mode.hbr_Buf) {
+    if ((direct_mode.hbr_Buf) && (direct_mode.output_mode)) {
         ret = pcm_write(out->pcm[0], (void *)direct_mode.hbr_Buf, newbytes);
         if (ret != 0)
            return ret;
@@ -1955,7 +1958,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                     out->config.channels = 2;
                 out->pcm_device = PCM_DEVICE;
                 out->output_direct = true;
-                type = OUTPUT_DIRECT;
+                type = OUTPUT_HDMI_MULTI;
             } else {
                 //property_get(MEDIA_CFG_AUDIO_MUL, value, "-1");
                 pthread_mutex_lock(&adev->lock);
@@ -2003,7 +2006,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     }
     
     direct_mode.output_mode = HW_PARAMS_FLAG_LPCM;
-    if ((type == OUTPUT_DIRECT)
+    if ((type == OUTPUT_HDMI_MULTI)
 	&& (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL)
 	/*&& (out->config.rate == 192000)
 	&& (out->config.channels == 8)*/) {
@@ -2076,6 +2079,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             break;
         }
     }
+    direct_mode.output_mode == HW_PARAMS_FLAG_LPCM;
     pthread_mutex_unlock(&adev->lock_outputs);
     free(stream);
 }
