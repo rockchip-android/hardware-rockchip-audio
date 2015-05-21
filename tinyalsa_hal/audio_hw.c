@@ -1515,11 +1515,20 @@ false_alarm:
             }
     }
 #endif
+
+#if 0
+    usleep(bytes * 1000000 / audio_stream_out_frame_size(stream) /
+           out_get_sample_rate(&stream->common));
+    ALOGD("Donnot output sound !!");
+    out->written += bytes / (out->config.channels * sizeof(short));
+    pthread_mutex_unlock(&out->lock);
+    return bytes;
+#endif
     /* Write to all active PCMs */
     if ((direct_mode.hbr_Buf) && (direct_mode.output_mode)) {
         ret = pcm_write(out->pcm[0], (void *)direct_mode.hbr_Buf, newbytes);
         if (ret != 0)
-           return ret;
+           goto exit;
     } else {
         for (i = 0; i < PCM_TOTAL; i++)
             if (out->pcm[i]) {
