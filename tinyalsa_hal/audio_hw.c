@@ -100,7 +100,7 @@ FILE *in_debug;
  *V1.0.0:stable version
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.0"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.2"
 
 #define SPEEX_DENOISE_ENABLE
 
@@ -1424,6 +1424,7 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
      * executing out_set_parameters() while holding the hw device
      * mutex
      */
+    ALOGV("out_write bytes = %d", bytes);
     pthread_mutex_lock(&out->lock);
     if (out->standby) {
         pthread_mutex_unlock(&out->lock);
@@ -2002,7 +2003,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             devices = AUDIO_DEVICE_OUT_SPDIF;
             out->pcm_device = PCM_DEVICE;
             out->output_direct = true;
-            type = OUTPUT_DIRECT;
+            type = OUTPUT_HDMI_MULTI;
         }
     } else if (flags & AUDIO_OUTPUT_FLAG_DEEP_BUFFER) {
         out->config = pcm_config_deep;
