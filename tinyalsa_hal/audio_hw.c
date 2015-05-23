@@ -100,7 +100,7 @@ FILE *in_debug;
  *V1.0.0:stable version
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.2"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.3"
 
 #define SPEEX_DENOISE_ENABLE
 
@@ -1959,6 +1959,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                 if ((config->sample_rate == 44100) || (config->sample_rate == 48000) 
                     || (config->sample_rate == 192000)) {
                     out->config.rate = config->sample_rate;
+                    out->output_direct = true;
+                    type = OUTPUT_HDMI_MULTI;
                 } else {
                     out->config.rate = 44100;
                     ALOGE("hdmi bitstream samplerate %d unsupport", config->sample_rate);
@@ -1967,8 +1969,6 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                 if (out->config.channels < 2)
                     out->config.channels = 2;
                 out->pcm_device = PCM_DEVICE;
-                out->output_direct = true;
-                type = OUTPUT_HDMI_MULTI;
             } else {
                 //property_get(MEDIA_CFG_AUDIO_MUL, value, "-1");
                 pthread_mutex_lock(&adev->lock);
@@ -2014,7 +2014,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         out->pcm_device = PCM_DEVICE;
         type = OUTPUT_LOW_LATENCY;
     }
-    
+
     direct_mode.output_mode = HW_PARAMS_FLAG_LPCM;
     if ((type == OUTPUT_HDMI_MULTI)
 	&& (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL)
