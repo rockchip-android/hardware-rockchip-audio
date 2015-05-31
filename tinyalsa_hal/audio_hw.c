@@ -100,7 +100,7 @@ FILE *in_debug;
  *V1.0.0:stable version
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.3"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.4"
 
 #define SPEEX_DENOISE_ENABLE
 
@@ -1424,7 +1424,11 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
      * executing out_set_parameters() while holding the hw device
      * mutex
      */
-    ALOGV("out_write bytes = %d", bytes);
+    char value[PROPERTY_VALUE_MAX];
+    property_get("media.audio.debug",value, NULL);
+    if (strstr (value, "1") || strstr (value, "true")) {
+        ALOGD("audio playback write bytes = %d", bytes);
+    }
     pthread_mutex_lock(&out->lock);
     if (out->standby) {
         pthread_mutex_unlock(&out->lock);
@@ -1487,31 +1491,29 @@ false_alarm:
 #endif
     if (out->muted)
         memset((void *)buffer, 0, bytes);
-#if 0
-    char value[PROPERTY_VALUE_MAX];
-    property_get("media.playback.control", value, NULL);
+#ifdef BOX_HAL
+    property_get("media.audio.record", value, NULL);
     prop_pcm = atoi(value);
-    if(prop_pcm)
-    {
+    if (prop_pcm) {
             ALOGI("dump pcm file.\n");
             static int fd=0;
             static int offset = 0;
             if(fd == NULL) {
                     fd=fopen("/data/debug.pcm","wb+");
                     if(fd == NULL) {
-                        ALOGD("DEBUG open /data/media/debug_pcmfile error =%d ,errno = %d",fd,errno);
+                        ALOGD("DEBUG open /data/debug.pcm error =%d ,errno = %d",fd,errno);
                         prop_pcm = 0;
                         offset = 0;
                     }
             }
-            fwrite(direct_mode.hbr_Buf,newbytes,1,fd);
-            offset += newbytes;
+            fwrite(buffer,bytes,1,fd);
+            offset += bytes;
             fflush(fd);
-            if(offset >= 32*1024*1024) {
+            if(offset >= prop_pcm*1024*1024) {
                     fclose(fd);
                     prop_pcm = 0;
                     offset = 0;
-                    system("setprop media.playback.control 0");
+                    system("setprop media.audio.record 0");
                     ALOGD("TEST playback pcmfile end");
             }
     }
@@ -1545,6 +1547,7 @@ exit:
 final_exit:
 
     if (ret != 0) {
+        ALOGD("AudioData write  error , keep slience! ret = %d", ret);
         usleep(bytes * 1000000 / audio_stream_out_frame_size(stream) /
                out_get_sample_rate(&stream->common));
     }
