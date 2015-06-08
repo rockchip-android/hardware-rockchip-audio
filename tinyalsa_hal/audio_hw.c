@@ -100,7 +100,7 @@ FILE *in_debug;
  *V1.0.0:stable version
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.4"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.5"
 
 #define SPEEX_DENOISE_ENABLE
 
@@ -493,7 +493,6 @@ struct direct_mode_t direct_mode = {HW_PARAMS_FLAG_LPCM, NULL};
 static int scount = 0;
 
 static void do_out_standby(struct stream_out *out);
-
 /**
  * NOTE: when multiple mutexes have to be acquired, always respect the following order:
  *   lock_outputs for hw device outputs list only
@@ -897,8 +896,8 @@ static int start_output_stream(struct stream_out *out)
         out->disabled = true;
         return 0;
     }
-
     out->disabled = false;
+    scount = 0;
     read_hdmi_audioinfo();
 #ifdef BOX_HAL
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
@@ -1206,7 +1205,6 @@ static void do_out_standby(struct stream_out *out)
 {
     struct audio_device *adev = out->dev;
     int i;
-
     if (!out->standby) {
         for (i = 0; i < PCM_TOTAL; i++) {
             if (out->pcm[i]) {
@@ -1242,7 +1240,6 @@ static void do_out_standby(struct stream_out *out)
     	    free (direct_mode.hbr_Buf);
     	    direct_mode.hbr_Buf = NULL;
     	}
-        scount = 0;
     }
 }
 
@@ -1427,7 +1424,7 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
     char value[PROPERTY_VALUE_MAX];
     property_get("media.audio.debug",value, NULL);
     if (strstr (value, "1") || strstr (value, "true")) {
-        ALOGD("audio playback write bytes = %d", bytes);
+        ALOGD("audio playback write bytes = %d, direct_mode.output_mode = %d", bytes, direct_mode.output_mode);
     }
     pthread_mutex_lock(&out->lock);
     if (out->standby) {
@@ -1458,7 +1455,9 @@ false_alarm:
             ALOGD("new hbr buffer!");
             direct_mode.hbr_Buf = (char *)malloc(newbytes);
         }
-
+        int temp;
+        int p;
+        int j=0;
         char *ptr = (char*)buffer;
         char *ptr_end = (char*)buffer+bytes;
         char *newptr = (char*)direct_mode.hbr_Buf;
@@ -1479,14 +1478,22 @@ false_alarm:
             } else {
                 newptr[2] |= 0x08;
             }
+            temp = (newptr[2]<<24) | (newptr[1]<<16) | (newptr[0]<<8);
+            j=0;
+            p=0;
+            while (j<31) {
+                p ^= temp&0x1;
+                p &= 0x1;
+                temp >>= 1;
+                j++;
+            }
+            newptr[2] |= (p&0x01)<<6;
             newptr[3] = 0x00;
             scount++;
             scount %= 384;
             ptr +=2;
             newptr +=4;
         }
-    } else {
-        direct_mode.output_mode == HW_PARAMS_FLAG_LPCM;
     }
 #endif
     if (out->muted)
@@ -1958,13 +1965,16 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             property_get(MEDIA_CFG_AUDIO_BYPASS, value, "-1");
             if(memcmp(value, "true", 4) == 0){
                 out->channel_mask = config->channel_mask;
-                out->config = pcm_config_direct;
-                if ((config->sample_rate == 44100) || (config->sample_rate == 48000) 
-                    || (config->sample_rate == 192000)) {
+                if ((config->sample_rate == 48000)|| (config->sample_rate == 192000)) {
+                    out->config = pcm_config_direct;
+                    if (config->sample_rate == 48000) {
+                        out->config.period_size = 1024 * 4;
+                    }
                     out->config.rate = config->sample_rate;
                     out->output_direct = true;
                     type = OUTPUT_HDMI_MULTI;
                 } else {
+                    out->config = pcm_config;
                     out->config.rate = 44100;
                     ALOGE("hdmi bitstream samplerate %d unsupport", config->sample_rate);
                 }
@@ -2083,6 +2093,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
     struct audio_device *adev;
     enum output_type type;
 
+    ALOGD("adev_close_output_stream!");
     out_standby(&stream->common);
     adev = (struct audio_device *)dev;
     pthread_mutex_lock(&adev->lock_outputs);
@@ -2092,7 +2103,7 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
             break;
         }
     }
-    direct_mode.output_mode == HW_PARAMS_FLAG_LPCM;
+    direct_mode.output_mode = HW_PARAMS_FLAG_LPCM;
     pthread_mutex_unlock(&adev->lock_outputs);
     free(stream);
 }
