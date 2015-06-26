@@ -43,6 +43,11 @@
 #include <speex/speex.h>
 #include <speex/speex_preprocess.h>
 
+
+#include <poll.h>
+#include <linux/fb.h>
+#include <hardware_legacy/uevent.h>
+
 /*************************************************************
  *                 ALSA Audio Git Log
  *V0.1.0:add alsa audio hal,just support 312x now.
@@ -59,7 +64,7 @@
  *V1.0.0:stable version
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.6"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.7"
 
 
 #ifdef BOX_HAL
@@ -102,6 +107,7 @@ int PCM_CARD_SPDIF = 1;
 #define HW_PARAMS_FLAG_NLPCM 1
 
 #define HDMI_AUIOINFO_NODE      "/sys/class/display/HDMI/audioinfo"
+#define HDMI_CONNECTION_NODE    "/sys/class/display/HDMI/connect"
 #define SND_CARD0_NODE          "/proc/asound/card0/id"
 #define SND_CARD1_NODE          "/proc/asound/card1/id"
 #define SND_CARD2_NODE          "/proc/asound/card2/id"
@@ -460,10 +466,10 @@ const struct route_config * const route_configs[IN_SOURCE_TAB_SIZE]
 
 struct mixer* pre_mixer;
 struct direct_mode_t direct_mode = {HW_PARAMS_FLAG_LPCM, NULL};
-static int scount = 0;
 unsigned char channel_status[CHASTA_SUB_NUM];
+static int scount = 0;
+pthread_t hdmi_uevent_t = NULL;
 
-#ifdef BOX_HAL
 void initchnsta(void)
 {   
     memset(channel_status, 0x0, CHASTA_SUB_NUM);
@@ -553,7 +559,6 @@ void dumpchnsta()
         channel_status[i+12], channel_status[i+13], channel_status[i+14], channel_status[i+15]);
     }
 }
-#endif
 
 #endif
 

@@ -19,6 +19,7 @@
 
 #include "alsa_audio.h"
 #include "audio_hw.h"
+#include "audio_hw_hdmi.h"
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -468,6 +469,23 @@ static int read_snd_card_info(void)
     }
     return 0;
 }
+
+static int read_hdmi_connect_state(void)
+{
+    FILE *fd = NULL;
+    char buf[20] = "";
+
+    fd = fopen(HDMI_CONNECTION_NODE,"r");
+    memset(buf, 0, sizeof(buf));
+    if (fd != NULL) {
+        fread(buf,1,sizeof(buf),fd);
+        fclose(fd);
+    }
+    if (strstr(buf, "1"))
+        return 1;
+    return 0;
+}
+
 #endif
 /* must be called with hw device outputs list, output stream, and hw device mutexes locked */
 static int start_output_stream(struct stream_out *out)
@@ -489,8 +507,7 @@ static int start_output_stream(struct stream_out *out)
 #ifdef BOX_HAL
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
         /*BOX hdmi & codec use the same i2s,so only config the codec card*/
-        //out->device |= AUDIO_DEVICE_OUT_SPEAKER;
-        //out->device &= ~AUDIO_DEVICE_OUT_AUX_DIGITAL;
+        out->device &= ~AUDIO_DEVICE_OUT_SPEAKER;
     }
 #endif
     ALOGD("Audio HAL start_output_stream  out->device = 0x%x",out->device);
@@ -992,16 +1009,25 @@ static int out_set_volume(struct audio_stream_out *stream, float left,
 }
 int prop_pcm;
 
+static void reset_bitstream_buf(struct stream_out *out)
+{
+    if (direct_mode.output_mode == HW_PARAMS_FLAG_NLPCM) {
+        do_out_standby(out);
+        if (direct_mode.hbr_Buf) {
+            free (direct_mode.hbr_Buf);
+            direct_mode.hbr_Buf = NULL;
+        }
+    }
+}
+
 static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
                          size_t bytes)
 {
     int ret = 0;
     struct stream_out *out = (struct stream_out *)stream;
     struct audio_device *adev = out->dev;
-    int i;
-
     size_t newbytes = bytes * 2;
-    
+    int i;
     /* FIXME This comment is no longer correct
      * acquiring hw device mutex systematically is useful if a low
      * priority thread is waiting on the output stream mutex - e.g.
@@ -1013,6 +1039,13 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
     if (strstr (value, "1") || strstr (value, "true")) {
         ALOGD("audio playback write bytes = %d, direct_mode.output_mode = %d", bytes, direct_mode.output_mode);
     }
+
+    property_get("media.audio.reset", value, NULL);
+    if (atoi(value) > 0) {
+        reset_bitstream_buf(out);
+        property_set("media.audio.reset", "0");
+    }
+
     pthread_mutex_lock(&out->lock);
     if (out->standby) {
         pthread_mutex_unlock(&out->lock);
@@ -2001,6 +2034,10 @@ static int adev_open(const hw_module_t* module, const char* name,
 #ifdef BOX_HAL
     read_snd_card_info();
     initchnsta();
+    if (!pthread_create(&hdmi_uevent_t, NULL, audio_hdmi_thread, NULL)) 
+    {
+        ALOGD("pthread_create error");
+    }
 #endif
     return 0;
 }

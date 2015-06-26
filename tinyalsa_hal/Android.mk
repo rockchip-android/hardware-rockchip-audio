@@ -21,7 +21,8 @@ LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := \
 	audio_hw.c \
 	alsa_route.c \
-	alsa_mixer.c
+	alsa_mixer.c \
+	audio_hw_hdmi.c
 LOCAL_C_INCLUDES += \
 	external/tinyalsa/include \
 	$(call include-path-for, audio-utils) \
@@ -32,10 +33,9 @@ LOCAL_CFLAGS := -Wno-unused-parameter
 ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)), box)
 LOCAL_CFLAGS += -DBOX_HAL
 endif
-LOCAL_SHARED_LIBRARIES := liblog libcutils libtinyalsa libaudioutils libaudioroute
+LOCAL_SHARED_LIBRARIES := liblog libcutils libtinyalsa libaudioutils libaudioroute libhardware_legacy
 LOCAL_STATIC_LIBRARIES := libspeex
 LOCAL_MODULE_TAGS := optional
-
 include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
