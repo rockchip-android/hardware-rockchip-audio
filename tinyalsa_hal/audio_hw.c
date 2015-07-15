@@ -1011,7 +1011,8 @@ int prop_pcm;
 
 static void reset_bitstream_buf(struct stream_out *out)
 {
-    if (direct_mode.output_mode == HW_PARAMS_FLAG_NLPCM) {
+    //if (direct_mode.output_mode == HW_PARAMS_FLAG_NLPCM)
+    {
         do_out_standby(out);
         if (direct_mode.hbr_Buf) {
             free (direct_mode.hbr_Buf);
@@ -1165,7 +1166,7 @@ exit:
 final_exit:
 
     if (ret != 0) {
-        ALOGD("AudioData write  error , keep slience! ret = %d", ret);
+        ALOGV("AudioData write  error , keep slience! ret = %d", ret);
         usleep(bytes * 1000000 / audio_stream_out_frame_size(stream) /
                out_get_sample_rate(&stream->common));
     }

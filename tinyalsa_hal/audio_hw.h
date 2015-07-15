@@ -64,7 +64,7 @@
  *V1.0.0:stable version
  *************************************************************/
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.7"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.8"
 
 
 #ifdef BOX_HAL

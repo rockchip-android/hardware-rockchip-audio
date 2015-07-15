@@ -24,12 +24,12 @@ void rk_check_hdmi_uevents(const char *buf,int len)
     if (!strcmp(buf, "change@/devices/virtual/switch/hdmi"))
 	{   
 	    ALOGD("audio hardware hdmi hotplug event");
-	    usleep(1000 * 1000);
-        property_set("media.audio.reset", "1");
+	    usleep(2 * 1000 * 1000);
+	    property_set("media.audio.reset", "1");
 	} else if(strstr(buf, "change@/devices/virtual/display/HDMI") != NULL) {
 	    ALOGD("audio hardware hdmi changed event");
-	    usleep(1000 * 1000);
-        property_set("media.audio.reset", "1");
+	    usleep(2 * 1000 * 1000);
+	    property_set("media.audio.reset", "1");
     }
 }
 
