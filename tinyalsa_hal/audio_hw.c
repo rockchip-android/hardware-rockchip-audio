@@ -1577,7 +1577,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             property_get(MEDIA_CFG_AUDIO_BYPASS, value, "-1");
             if(memcmp(value, "true", 4) == 0){
                 out->channel_mask = config->channel_mask;
-                if ((config->sample_rate == 48000)|| (config->sample_rate == 192000)) {
+                if ((config->sample_rate == 44100) || (config->sample_rate == 48000) ||
+                    (config->sample_rate == 192000)) {
                     out->config = pcm_config_direct;
                     out->config.rate = config->sample_rate;
                     out->output_direct = true;
@@ -1645,7 +1646,10 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             sethbrchnsta();
             scount = 0;
             ALOGD("now use the hbr mode");
-        } else { 
+        } if (out->config.rate == 44100) {
+            out->config.format = PCM_FORMAT_S16_LE;
+            ALOGD("now use normal direct output ");
+        } else {
             setnlpcmchnsta();
             scount = 0;
             ALOGD("now use the nlpcm mode");
