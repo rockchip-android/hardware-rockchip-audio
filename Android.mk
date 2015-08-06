@@ -1,12 +1,13 @@
+#legacy audio hal is just for debuging, and we use tinyalsa in all rk product
+#use AUDIO_FORCE_LEGACY to choose which you need.
+
 MY_LOCAL_PATH := $(call my-dir)
 
-ifeq ($(strip $(TARGET_BOARD_PLATFORM)), rk312x)
-include $(MY_LOCAL_PATH)/tinyalsa_hal/Android.mk
+AUDIO_FORCE_LEGACY=false
+
+ifeq ($(strip $(AUDIO_FORCE_LEGACY)), true)
+    include $(MY_LOCAL_PATH)/legacy_hal/Android.mk
 else
- ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)), box)
- include $(MY_LOCAL_PATH)/tinyalsa_hal/Android.mk
- else
- include $(MY_LOCAL_PATH)/legacy_hal/Android.mk
- endif
+    include $(MY_LOCAL_PATH)/tinyalsa_hal/Android.mk
 endif
 
