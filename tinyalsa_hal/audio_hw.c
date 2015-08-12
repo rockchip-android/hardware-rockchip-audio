@@ -1646,7 +1646,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             sethbrchnsta();
             scount = 0;
             ALOGD("now use the hbr mode");
-        } if (out->config.rate == 44100) {
+        } else if (out->config.rate == 44100) {
             out->config.format = PCM_FORMAT_S16_LE;
             ALOGD("now use normal direct output ");
         } else {
