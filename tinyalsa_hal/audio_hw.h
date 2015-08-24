@@ -14,6 +14,28 @@
  * limitations under the License.
  */
 
+/**
+ * @file audio_hw.h
+ * @brief 
+ *                 ALSA Audio Git Log
+ * - V0.1.0:add alsa audio hal,just support 312x now.
+ * - V0.2.0:remove unused variable.
+ * - V0.3.0:turn off device when do_standby.
+ * - V0.4.0:turn off device before open pcm.
+ * - V0.4.1:Need to re-open the control to fix no sound when suspend.
+ * - V0.5.0:Merge the mixer operation from legacy_alsa.
+ * - V0.6.0:Merge speex denoise from legacy_alsa.
+ * - V0.7.0:add copyright.
+ * - V0.7.1:add support for box audio
+ * - V0.7.2:add support for dircet output
+ * - V0.8.0:update the direct output for box, add the DVI mode
+ * - V1.0.0:stable version
+ *
+ * @author  RkAudio
+ * @version 1.0.8
+ * @date 2015-08-24
+ */
+
 #ifndef AUIDO_HW_H
 #define AUIDO_HW_H
 #include <errno.h>
@@ -47,22 +69,6 @@
 #include <poll.h>
 #include <linux/fb.h>
 #include <hardware_legacy/uevent.h>
-
-/*************************************************************
- *                 ALSA Audio Git Log
- *V0.1.0:add alsa audio hal,just support 312x now.
- *V0.2.0:remove unused variable.
- *V0.3.0:turn off device when do_standby.
- *V0.4.0:turn off device before open pcm.
- *V0.4.1:Need to re-open the control to fix no sound when suspend.
- *V0.5.0:Merge the mixer operation from legacy_alsa.
- *V0.6.0:Merge speex denoise from legacy_alsa.
- *V0.7.0:add copyright.
- *V0.7.1:add support for box audio
- *V0.7.2:add support for dircet output
- *V0.8.0:update the direct output for box, add the DVI mode
- *V1.0.0:stable version
- *************************************************************/
 
 #define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.8"
 
@@ -469,7 +475,13 @@ struct direct_mode_t direct_mode = {HW_PARAMS_FLAG_LPCM, NULL};
 unsigned char channel_status[CHASTA_SUB_NUM];
 static int scount = 0;
 pthread_t hdmi_uevent_t = NULL;
+int prop_pcm;//for debug
 
+static void do_out_standby(struct stream_out *out);
+
+/**
+ * @brief initchnsta 
+ */
 void initchnsta(void)
 {   
     memset(channel_status, 0x0, CHASTA_SUB_NUM);
@@ -503,6 +515,9 @@ void initchnsta(void)
     channel_status[CHASTA_BIT0*2+1] |= (0X1<<B_BIT_SHIFT);
 }
 
+/**
+ * @brief setnlpcmchnsta 
+ */
 void setnlpcmchnsta(void)
 {
        /* sampling frequency default 48k */
@@ -525,6 +540,9 @@ void setnlpcmchnsta(void)
        channel_status[CHASTA_BIT39*2+1] |= C_BIT_SET;
 }
 
+/**
+ * @brief sethbrchnsta 
+ */
 void sethbrchnsta(void)
 {
        /* sampling frequency 768k */
@@ -547,6 +565,9 @@ void sethbrchnsta(void)
        channel_status[CHASTA_BIT39*2+1] &= C_BIT_UNSET;
 }
 
+/**
+ * @brief dumpchnsta 
+ */
 void dumpchnsta()
 {
     int i= 0;
@@ -559,6 +580,7 @@ void dumpchnsta()
         channel_status[i+12], channel_status[i+13], channel_status[i+14], channel_status[i+15]);
     }
 }
+
 
 #endif
 

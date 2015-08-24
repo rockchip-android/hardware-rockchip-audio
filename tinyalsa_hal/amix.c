@@ -13,6 +13,13 @@
 ** See the License for the specific language governing permissions and
 ** limitations under the License.
 */
+/**
+ * @file amix.c
+ * @brief 
+ * @author  RkAudio
+ * @version 1.0.8
+ * @date 2015-08-24
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +30,14 @@
 #include "alsa_audio.h"
 
 
+/**
+ * @brief get_ctl 
+ *
+ * @param mixer
+ * @param name
+ *
+ * @returns 
+ */
 struct mixer_ctl *get_ctl(struct mixer *mixer, char *name)
 {
     char *p;

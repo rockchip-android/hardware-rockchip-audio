@@ -1,6 +1,14 @@
 /*
  * Copyright (C) 2015 Rockchip Electronics Co., Ltd.
-*/
+ */
+
+/*
+ * @file alsa_route.c
+ * @brief 
+ * @author  RkAudio
+ * @version 1.0.8
+ * @date 2015-08-24
+ */
 
 #define LOG_TAG "alsa_route"
 
@@ -43,6 +51,11 @@ struct pcm* mPcm[PCM_MAX + 1];
 struct mixer* mMixerPlayback;
 struct mixer* mMixerCapture;
 
+/**
+ * @brief route_init 
+ *
+ * @returns 
+ */
 int route_init(void)
 {
     char soundCardID[20] = "";
@@ -90,6 +103,9 @@ int route_init(void)
     return 0;
 }
 
+/**
+ * @brief route_uninit 
+ */
 void route_uninit(void)
 {
     ALOGV("route_uninit()");
@@ -98,6 +114,13 @@ void route_uninit(void)
 	route_pcm_close(CAPTURE_OFF_ROUTE);
 }
 
+/**
+ * @brief is_playback_route 
+ *
+ * @param route
+ *
+ * @returns 
+ */
 int is_playback_route(unsigned route)
 {
     switch (route) {
@@ -141,6 +164,13 @@ int is_playback_route(unsigned route)
     }
 }
 
+/**
+ * @brief route_set_input_source 
+ *
+ * @param source
+ *
+ * @returns 
+ */
 int route_set_input_source(const char *source)
 {
     struct mixer* mMixer = mMixerCapture;
@@ -156,6 +186,14 @@ int route_set_input_source(const char *source)
     return mixer_ctl_select(ctl, source);
 }
 
+/**
+ * @brief route_set_voice_volume 
+ *
+ * @param ctlName
+ * @param volume
+ *
+ * @returns 
+ */
 int route_set_voice_volume(const char *ctlName, float volume)
 {
     struct mixer* mMixer = mMixerPlayback;
@@ -199,6 +237,13 @@ int route_set_voice_volume(const char *ctlName, float volume)
     return mixer_ctl_set_int(ctl, vol);
 }
 
+/**
+ * @brief get_route_config 
+ *
+ * @param route
+ *
+ * @returns 
+ */
 const struct config_route *get_route_config(unsigned route)
 {
     ALOGV("get_route_config() route %d", route);
@@ -278,6 +323,15 @@ const struct config_route *get_route_config(unsigned route)
     }
 }
 
+/**
+ * @brief set_controls 
+ *
+ * @param mixer
+ * @param ctls
+ * @param ctls_count
+ *
+ * @returns 
+ */
 int set_controls(struct mixer *mixer, const struct config_control *ctls, const unsigned ctls_count)
 {
     struct mixer_ctl *ctl;
@@ -328,6 +382,13 @@ int set_controls(struct mixer *mixer, const struct config_control *ctls, const u
     return 0;
 }
 
+/**
+ * @brief route_set_controls 
+ *
+ * @param route
+ *
+ * @returns 
+ */
 int route_set_controls(unsigned route)
 {
     struct mixer* mMixer;
@@ -376,6 +437,11 @@ int route_set_controls(unsigned route)
     return 0;
 }
 
+/**
+ * @brief route_pcm_open 
+ *
+ * @param route
+ */
 void route_pcm_open(uint32_t route)
 {
     int is_playback;
@@ -458,6 +524,13 @@ __exit:
 	ALOGV("route_pcm_open exit");
 }
 
+/**
+ * @brief route_pcm_close 
+ *
+ * @param route
+ *
+ * @returns 
+ */
 int route_pcm_close(unsigned route)
 {
     unsigned i;

@@ -1,6 +1,13 @@
 /*
  * Copyright (C) 2015 Rockchip Electronics Co., Ltd.
 */
+/**
+ * @file wm8960_config.h
+ * @brief 
+ * @author  RKAudio
+ * @version 1.0.8
+ * @date 2015-08-24
+ */
 
 #ifndef _WM8960_CONFIG_H_
 #define _WM8960_CONFIG_H_

@@ -13,6 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @file audio_hw_hdmi.h
+ * @brief 
+ * @author  RKAudio
+ * @version 1.0.8
+ * @date 2015-08-24
+ */
+
 #ifndef AUIDO_HDMI_MONITOR_H
 #define AUIDO_HDMI_MONITOR_H
 

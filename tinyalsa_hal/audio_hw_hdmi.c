@@ -13,12 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/**
+ * @file audio_hw_hdmi.c
+ * @brief 
+ * @author  RkAudio
+ * @version 1.0.8
+ * @date 2015-08-24
+ */
 
 #include "audio_hw_hdmi.h"
 
 #define LOG_TAG "audio_hdmi_monitor"
 
 
+/**
+ * @brief rk_check_hdmi_uevents 
+ *
+ * @param buf
+ * @param len
+ */
 void rk_check_hdmi_uevents(const char *buf,int len)
 {
     if (!strcmp(buf, "change@/devices/virtual/switch/hdmi"))
@@ -33,12 +46,24 @@ void rk_check_hdmi_uevents(const char *buf,int len)
     }
 }
 
+/**
+ * @brief rk_handle_uevents 
+ *
+ * @param buff
+ * @param len
+ */
 void rk_handle_uevents(const char *buff,int len)
 {
     rk_check_hdmi_uevents(buff,len);
 }
 
-
+/**
+ * @brief audio_hdmi_thread 
+ *
+ * @param arg
+ *
+ * @returns 
+ */
 void  *audio_hdmi_thread(void *arg)
 {
     static char uevent_desc[4096];

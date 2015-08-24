@@ -14,6 +14,14 @@
 ** limitations under the License.
 */
 
+/**
+ * @file alsa_mixer.c
+ * @brief 
+ * @author  RkAudio
+ * @version 1.0.8
+ * @date 2015-08-24
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +59,13 @@ char *volume_controls_name_table[] = {
     "Mic Capture Volume",
 };
 
+/**
+ * @brief elem_iface_name 
+ *
+ * @param n
+ *
+ * @returns 
+ */
 static const char *elem_iface_name(snd_ctl_elem_iface_t n)
 {
     switch (n) {
@@ -65,6 +80,13 @@ static const char *elem_iface_name(snd_ctl_elem_iface_t n)
     }
 }
 
+/**
+ * @brief elem_type_name 
+ *
+ * @param n
+ *
+ * @returns 
+ */
 static const char *elem_type_name(snd_ctl_elem_type_t n)
 {
     switch (n) {
@@ -79,6 +101,11 @@ static const char *elem_type_name(snd_ctl_elem_type_t n)
     }
 }
 
+/**
+ * @brief mixer_close_legacy 
+ *
+ * @param mixer
+ */
 void mixer_close_legacy(struct mixer *mixer)
 {
     unsigned n,m;
@@ -108,6 +135,13 @@ void mixer_close_legacy(struct mixer *mixer)
     free(mixer);
 }
 
+/**
+ * @brief mixer_open_legacy 
+ *
+ * @param card
+ *
+ * @returns 
+ */
 struct mixer *mixer_open_legacy(unsigned card)
 {
     char dname[sizeof(SOUND_CTL_PREFIX) + 20];
@@ -226,6 +260,11 @@ fail:
     return 0;
 }
 
+/**
+ * @brief mixer_ctl_print 
+ *
+ * @param ctl
+ */
 void mixer_ctl_print(struct mixer_ctl *ctl)
 {
     struct snd_ctl_elem_value ev;
@@ -284,6 +323,11 @@ void mixer_ctl_print(struct mixer_ctl *ctl)
     printf("\n");
 }
 
+/**
+ * @brief mixer_dump 
+ *
+ * @param mixer
+ */
 void mixer_dump(struct mixer *mixer)
 {
     unsigned n;
@@ -311,6 +355,15 @@ void mixer_dump(struct mixer *mixer)
     }
 }
 
+/**
+ * @brief mixer_get_control 
+ *
+ * @param mixer
+ * @param name
+ * @param index
+ *
+ * @returns 
+ */
 struct mixer_ctl *mixer_get_control(struct mixer *mixer,
                                     const char *name, unsigned index)
 {
@@ -326,6 +379,14 @@ struct mixer_ctl *mixer_get_control(struct mixer *mixer,
     return 0;
 }
 
+/**
+ * @brief mixer_get_nth_control 
+ *
+ * @param mixer
+ * @param n
+ *
+ * @returns 
+ */
 struct mixer_ctl *mixer_get_nth_control(struct mixer *mixer, unsigned n)
 {
     if (n < mixer->count)
@@ -333,6 +394,14 @@ struct mixer_ctl *mixer_get_nth_control(struct mixer *mixer, unsigned n)
     return 0;
 }
 
+/**
+ * @brief scale_int 
+ *
+ * @param ei
+ * @param _percent
+ *
+ * @returns 
+ */
 static long scale_int(struct snd_ctl_elem_info *ei, unsigned _percent)
 {
     long percent;
@@ -348,6 +417,14 @@ static long scale_int(struct snd_ctl_elem_info *ei, unsigned _percent)
     return ei->value.integer.min + (range * percent) / 100LL;
 }
 
+/**
+ * @brief scale_int64 
+ *
+ * @param ei
+ * @param _percent
+ *
+ * @returns 
+ */
 static long long scale_int64(struct snd_ctl_elem_info *ei, unsigned _percent)
 {
     long long percent;
@@ -363,6 +440,14 @@ static long long scale_int64(struct snd_ctl_elem_info *ei, unsigned _percent)
     return ei->value.integer.min + (range / percent);
 }
 
+/**
+ * @brief mixer_ctl_set 
+ *
+ * @param ctl
+ * @param percent
+ *
+ * @returns 
+ */
 int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent)
 {
     struct snd_ctl_elem_value ev;
@@ -395,6 +480,14 @@ int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent)
     return ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &ev);
 }
 
+/**
+ * @brief mixer_ctl_select 
+ *
+ * @param ctl
+ * @param value
+ *
+ * @returns 
+ */
 int mixer_ctl_select(struct mixer_ctl *ctl, const char *value)
 {
     unsigned n, max;
@@ -421,11 +514,15 @@ int mixer_ctl_select(struct mixer_ctl *ctl, const char *value)
     return -1;
 }
 
-//add for incall volume by Jear.Chen
-/*
-  set value to control
-*/
-
+/**
+ * @brief mixer_ctl_set_int_double 
+ *
+ * @param ctl
+ * @param left
+ * @param right
+ *
+ * @returns 
+ */
 int mixer_ctl_set_int_double(struct mixer_ctl *ctl, long long left, long long right)
 {
     struct snd_ctl_elem_value ev;
@@ -486,13 +583,27 @@ int mixer_ctl_set_int_double(struct mixer_ctl *ctl, long long left, long long ri
     return ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &ev);
 }
 
+/**
+ * @brief mixer_ctl_set_int 
+ *
+ * @param ctl
+ * @param value
+ *
+ * @returns 
+ */
 int mixer_ctl_set_int(struct mixer_ctl *ctl, long long value)
 {
     return mixer_ctl_set_int_double(ctl, value, value);
 }
 
-/*
-  Get min and max value of control
+/**
+ * @brief mixer_get_ctl_minmax 
+ *
+ * @param ctl
+ * @param min
+ * @param max
+ *
+ * @returns 
  */
 int mixer_get_ctl_minmax(struct mixer_ctl *ctl, long long *min, long long *max)
 {
@@ -519,8 +630,17 @@ int mixer_get_ctl_minmax(struct mixer_ctl *ctl, long long *min, long long *max)
     return 0;
 }
 
-/*
-  Get dB range from tlv[] which is obtained from control
+/**
+ * @brief mixer_tlv_get_dB_range 
+ * Get dB range from tlv[] which is obtained from control
+ *
+ * @param tlv
+ * @param rangemin
+ * @param rangemax
+ * @param min
+ * @param max
+ *
+ * @returns 
  */
 int mixer_tlv_get_dB_range(unsigned int *tlv, long rangemin, long rangemax,
                                     long *min, long *max)
@@ -573,8 +693,18 @@ int mixer_tlv_get_dB_range(unsigned int *tlv, long rangemin, long rangemax,
     return -EINVAL;
 }
 
-/*
-  Get dB range of control
+/**
+ * @brief mixer_get_dB_range 
+ * Get dB range of control
+ *
+ * @param ctl
+ * @param rangemin
+ * @param rangemax
+ * @param dB_min
+ * @param dB_max
+ * @param dB_step
+ *
+ * @returns 
  */
 int mixer_get_dB_range(struct mixer_ctl *ctl, long rangemin, long rangemax,
                                     float *dB_min, float *dB_max, float *dB_step)
@@ -605,5 +735,3 @@ int mixer_get_dB_range(struct mixer_ctl *ctl, long rangemin, long rangemax,
 
     return 0;
 }
-
-//add for incall volume end

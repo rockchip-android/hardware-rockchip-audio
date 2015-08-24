@@ -14,6 +14,14 @@
 ** limitations under the License.
 */
 
+/**
+ * @file alsa_audio.h
+ * @brief 
+ * @author  RkAudio
+ * @version 1.0.8
+ * @date 2015-08-24
+ */
+
 #ifndef _AUDIO_H_
 #define _AUDIO_H_
 

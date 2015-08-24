@@ -1,6 +1,13 @@
 /*
  * Copyright (C) 2015 Rockchip Electronics Co., Ltd.
 */
+/**
+ * @file rt3224_config.h
+ * @brief 
+ * @author  RkAudio
+ * @version 1.0.8
+ * @date 2015-08-24
+ */
 
 #ifndef _RT3224_CONFIG_H_
 #define _RT3224_CONFIG_H_
