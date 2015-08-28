@@ -70,7 +70,7 @@
 #include <linux/fb.h>
 #include <hardware_legacy/uevent.h>
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.8"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.9"
 
 
 #ifdef BOX_HAL
@@ -150,6 +150,24 @@ int PCM_CARD_SPDIF = 1;
 #define CHASTA_BIT38   38
 #define CHASTA_BIT39   39
 
+#ifdef BOX_HAL
+struct pcm_config pcm_config = {
+    .channels = 2,
+    .rate = 44100,
+    .period_size = 2048,
+    .period_count = 4,
+    .format = PCM_FORMAT_S16_LE,
+};
+
+struct pcm_config pcm_config_in = {
+    .channels = 2,
+    .rate = 44100,
+    .period_size = 1024,
+    .period_count = 4,
+    .format = PCM_FORMAT_S16_LE,
+};
+
+#else
 struct pcm_config pcm_config = {
     .channels = 2,
     .rate = 44100,
@@ -165,6 +183,7 @@ struct pcm_config pcm_config_in = {
     .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
 };
+#endif
 
 struct pcm_config pcm_config_in_low_latency = {
     .channels = 2,
