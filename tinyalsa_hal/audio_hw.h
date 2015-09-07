@@ -286,6 +286,7 @@ struct stream_out {
     audio_channel_mask_t supported_channel_masks[MAX_SUPPORTED_CHANNEL_MASKS + 1];
     bool muted;
     uint64_t written; /* total frames written, not cleared when entering standby */
+    uint64_t nframes;
     bool output_direct;
 
     struct audio_device *dev;

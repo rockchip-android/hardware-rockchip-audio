@@ -804,6 +804,7 @@ static void do_out_standby(struct stream_out *out)
             }
         }
         out->standby = true;
+        out->nframes = 0;
 
         if (out == adev->outputs[OUTPUT_HDMI_MULTI]) {
             /* force standby on low latency output stream so that it can reuse HDMI driver if
@@ -1215,8 +1216,10 @@ false_alarm:
                     break;
             }
     }
-    if (ret == 0)
+    if (ret == 0) {
         out->written += bytes / (out->config.channels * sizeof(short));
+        out->nframes = out->written;
+    }
 exit:
     pthread_mutex_unlock(&out->lock);
 final_exit:
@@ -1241,7 +1244,10 @@ final_exit:
 static int out_get_render_position(const struct audio_stream_out *stream,
                                    uint32_t *dsp_frames)
 {
-    return -EINVAL;
+    struct stream_out *out = (struct stream_out *)stream;
+
+    *dsp_frames = out->nframes;
+    return 0;
 }
 
 /**
@@ -1868,6 +1874,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         type = OUTPUT_LOW_LATENCY;
     }
 
+    ALOGD("out->config.rate = %d, out->config.channels = %d", out->config.rate, out->config.channels);
     direct_mode.output_mode = HW_PARAMS_FLAG_LPCM;
     if ((type == OUTPUT_HDMI_MULTI) && (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL)) {
         direct_mode.output_mode = HW_PARAMS_FLAG_NLPCM;
@@ -1917,6 +1924,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     config->sample_rate = out_get_sample_rate(&out->stream.common);
 
     out->standby = true;
+    out->nframes = 0;
     /* out->muted = false; by calloc() */
     /* out->written = 0; by calloc() */
 
