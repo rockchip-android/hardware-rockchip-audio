@@ -80,27 +80,9 @@ const struct config_control rt5616_speaker_normal_controls[] = {
         .int_val = {on},
     },
     {
-        .ctl_name = "OUT MIXR DAC R1 Switch",
+        .ctl_name = "HPO MIX DAC1 Switch",
         .int_val = {on},
-    },
-    {
-        .ctl_name = "OUT MIXL DAC L1 Switch",
-        .int_val = {on},
-    },
-    
-    {
-        .ctl_name = "LOUT MIX DAC L1 Switch",
-        .int_val = {on},
-    }, 
-    {
-        .ctl_name = "LOUT MIX DAC R1 Switch",
-        .int_val = {on},
-    },
-/* // if  Line out ajust volume
-   {
-        .ctl_name = "LOUT MIX OUTVOL L Switch",
-        .int_val = {on},
-    }, 
+    },/*
     {
         .ctl_name = "LOUT MIX OUTVOL R Switch",
         .int_val = {on},
@@ -224,7 +206,7 @@ const struct config_control rt5616_headphone_normal_controls[] = {
     {
         .ctl_name = "HPO MIX DAC1 Switch",
         .int_val = {on},
-    },
+    },/*
     {
         .ctl_name = "DAC1 Playback Volume",
         .int_val = {175, 175},
@@ -232,7 +214,7 @@ const struct config_control rt5616_headphone_normal_controls[] = {
     {
         .ctl_name = "HP Playback Volume",
         .int_val = {31, 31},
-    }, 
+    }, */
 };
 
 const struct config_control rt5616_headphone_incall_controls[] = {
@@ -335,7 +317,7 @@ const struct config_control rt5616_headset_normal_controls[] = {
     {
         .ctl_name = "HPO MIX DAC1 Switch",
         .int_val = {on},
-    },
+    },/*
     {
         .ctl_name = "DAC1 Playback Volume",
         .int_val = {175, 175},
@@ -343,7 +325,7 @@ const struct config_control rt5616_headset_normal_controls[] = {
     {
         .ctl_name = "HP Playback Volume",
         .int_val = {31, 31},
-    }, 
+    }, */
 };
 
 const struct config_control rt5616_headset_incall_controls[] = {
@@ -413,7 +395,7 @@ const struct config_control rt5616_main_mic_capture_controls[] = {
     },
     {
         .ctl_name = "ADC Capture Volume",
-        .int_val = {40,40},
+        .int_val = {32,32},
     },
     {
         .ctl_name = "ADC Boost Gain",
