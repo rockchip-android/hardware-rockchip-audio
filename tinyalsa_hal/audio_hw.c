@@ -742,7 +742,9 @@ static audio_channel_mask_t out_get_channels(const struct audio_stream *stream)
  */
 static audio_format_t out_get_format(const struct audio_stream *stream)
 {
-    return AUDIO_FORMAT_PCM_16_BIT;
+    struct stream_out *out = (struct stream_out *)stream;
+
+    return out->config.format;
 }
 
 /**
@@ -1060,6 +1062,34 @@ static int out_set_volume(struct audio_stream_out *stream, float left,
     }
     return -ENOSYS;
 }
+/**
+ * @brief dump_out_data
+ *
+ * @param buffer bytes
+ */
+ static void dump_out_data(const void* buffer,size_t bytes, int *size)
+ {
+    ALOGD("dump pcm file.");
+    static FILE* fd;
+    static int offset = 0;
+    if(fd == NULL) {
+        fd=fopen("/data/debug.pcm","wb+");
+            if(fd == NULL) {
+            ALOGD("DEBUG open /data/debug.pcm error =%d ,errno = %d",fd,errno);
+            offset = 0;
+        }
+    }
+    fwrite(buffer,bytes,1,fd);
+    offset += bytes;
+    fflush(fd);
+    if(offset >= (*size)*1024*1024) {
+        *size = 0;
+        fclose(fd);
+        offset = 0;
+        system("setprop media.audio.record 0");
+        ALOGD("TEST playback pcmfile end");
+    }
+ }
 
 /**
  * @brief reset_bitstream_buf 
@@ -1068,8 +1098,7 @@ static int out_set_volume(struct audio_stream_out *stream, float left,
  */
 static void reset_bitstream_buf(struct stream_out *out)
 {
-    //if (direct_mode.output_mode == HW_PARAMS_FLAG_NLPCM)
-    {
+    if (direct_mode.output_mode == HW_PARAMS_FLAG_NLPCM) {
         do_out_standby(out);
         if (direct_mode.hbr_Buf) {
             free (direct_mode.hbr_Buf);
@@ -1178,28 +1207,8 @@ false_alarm:
 #ifdef BOX_HAL
     property_get("media.audio.record", value, NULL);
     prop_pcm = atoi(value);
-    if (prop_pcm) {
-            ALOGI("dump pcm file.\n");
-            static int fd=0;
-            static int offset = 0;
-            if(fd == NULL) {
-                    fd=fopen("/data/debug.pcm","wb+");
-                    if(fd == NULL) {
-                        ALOGD("DEBUG open /data/debug.pcm error =%d ,errno = %d",fd,errno);
-                        prop_pcm = 0;
-                        offset = 0;
-                    }
-            }
-            fwrite(buffer,bytes,1,fd);
-            offset += bytes;
-            fflush(fd);
-            if(offset >= prop_pcm*1024*1024) {
-                    fclose(fd);
-                    prop_pcm = 0;
-                    offset = 0;
-                    system("setprop media.audio.record 0");
-                    ALOGD("TEST playback pcmfile end");
-            }
+    if (prop_pcm > 0) {
+        dump_out_data(buffer, bytes, &prop_pcm);
     }
 #endif
 
@@ -2345,6 +2354,9 @@ static int adev_close(hw_device_t *device)
     if (adev->hdmi_drv_fd >= 0)
         close(adev->hdmi_drv_fd);
 
+    if (hdmi_uevent_t != NULL) {
+        pthread_join(hdmi_uevent_t, NULL);
+    }
     free(device);
     return 0;
 }
@@ -2415,8 +2427,7 @@ static int adev_open(const hw_module_t* module, const char* name,
 #ifdef BOX_HAL
     read_snd_card_info();
     initchnsta();
-    if (!pthread_create(&hdmi_uevent_t, NULL, audio_hdmi_thread, NULL)) 
-    {
+    if (!pthread_create(&hdmi_uevent_t, NULL, audio_hdmi_thread, NULL)) {
         ALOGD("pthread_create error");
     }
 #endif
