@@ -45,6 +45,7 @@
 
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+
 //#define ALSA_DEBUG
 #ifdef ALSA_IN_DEBUG
 FILE *in_debug;
@@ -408,8 +409,8 @@ static int start_output_stream(struct stream_out *out)
         /*BOX hdmi & codec use the same i2s,so only config the codec card*/
         out->device &= ~AUDIO_DEVICE_OUT_SPEAKER;
     }
+    out_dump(out, 0);
 #endif
-    ALOGD("Audio HAL start_output_stream  out->device = 0x%x",out->device);
     route_pcm_open(getRouteFromDevice(out->device));
 
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
@@ -480,6 +481,7 @@ static int start_input_stream(struct stream_in *in)
 {
     struct audio_device *adev = in->dev;
 
+    in_dump(in, 0);
     route_pcm_open(getRouteFromDevice(in->device | AUDIO_DEVICE_BIT_IN));
 
     in->pcm = pcm_open(PCM_CARD, PCM_DEVICE, PCM_IN, in->config);
@@ -900,11 +902,18 @@ static int out_standby(struct audio_stream *stream)
  *
  * @returns 
  */
-static int out_dump(const struct audio_stream *stream, int fd)
+ int out_dump(const struct audio_stream *stream, int fd)
 {
+    struct stream_out *out = (struct stream_out *)stream;
+
+    ALOGD("Device     : 0x%x", out->device);
+    ALOGD("SampleRate : %d", out->config.rate);
+    ALOGD("Channels   : %d", out->config.channels);
+    ALOGD("Formate    : %d", out->config.format);
+    ALOGD("PreiodSize : %d", out->config.period_size);
+
     return 0;
 }
-
 /**
  * @brief out_set_parameters 
  *
@@ -1479,8 +1488,16 @@ static int in_standby(struct audio_stream *stream)
  *
  * @returns 
  */
-static int in_dump(const struct audio_stream *stream, int fd)
+int in_dump(const struct audio_stream *stream, int fd)
 {
+    struct stream_out *in = (struct stream_out *)stream;
+
+    ALOGD("Device     : 0x%x", in->device);
+    ALOGD("SampleRate : %d", in->config.rate);
+    ALOGD("Channels   : %d", in->config.channels);
+    ALOGD("Formate    : %d", in->config.format);
+    ALOGD("PreiodSize : %d", in->config.period_size);
+
     return 0;
 }
 
