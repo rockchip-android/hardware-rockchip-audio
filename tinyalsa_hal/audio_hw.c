@@ -51,6 +51,8 @@
 FILE *in_debug;
 #endif
 
+int in_dump(const struct audio_stream *stream, int fd);
+
 /**
  * @brief get_output_device_id 
  *

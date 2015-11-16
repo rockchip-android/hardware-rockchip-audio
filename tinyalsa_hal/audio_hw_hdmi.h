@@ -27,6 +27,7 @@
 
 #include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdarg.h>
 #include <poll.h>
 #include <linux/fb.h>
