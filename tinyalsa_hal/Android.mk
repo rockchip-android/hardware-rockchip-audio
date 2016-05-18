@@ -33,6 +33,9 @@ LOCAL_CFLAGS := -Wno-unused-parameter
 ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)), box)
 LOCAL_CFLAGS += -DBOX_HAL
 endif
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3368)
+LOCAL_CFLAGS += -DRK3368
+endif
 LOCAL_SHARED_LIBRARIES := liblog libcutils libtinyalsa libaudioutils libaudioroute libhardware_legacy
 LOCAL_STATIC_LIBRARIES := libspeex
 LOCAL_MODULE_TAGS := optional

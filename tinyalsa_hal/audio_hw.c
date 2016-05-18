@@ -2283,7 +2283,9 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     return 0;
 
 err_speex_malloc:
+#ifdef SPEEX_DENOISE_ENABLE
     free(in->mSpeexPcmIn);
+#endif
 err_resampler:
     free(in->buffer);
 err_malloc:
