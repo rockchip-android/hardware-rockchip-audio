@@ -155,8 +155,8 @@ int PCM_CARD_SPDIF = 1;
 struct pcm_config pcm_config = {
     .channels = 2,
     .rate = 44100,
-    .period_size = 2048,
-    .period_count = 4,
+    .period_size = 512,
+    .period_count = 6,
     .format = PCM_FORMAT_S16_LE,
 };
 
@@ -173,7 +173,7 @@ struct pcm_config pcm_config = {
     .channels = 2,
     .rate = 44100,
     .period_size = 512,
-    .period_count = 4,
+    .period_count = 6,
     .format = PCM_FORMAT_S16_LE,
 };
 
