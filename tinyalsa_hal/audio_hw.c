@@ -333,32 +333,62 @@ static int read_hdmi_audioinfo(void)
  *
  * @returns 
  */
-#ifdef BOX_HAL
 static int read_snd_card_info(void)
 {
     FILE *fd = NULL;
-    char buf[20] = "";
+    char buf0[25] = "";
+    char buf1[25] = "";
+    char buf2[25] = "";
+
 
     fd = fopen(SND_CARD1_NODE,"r");
-    memset(buf, 0, sizeof(buf));
+    memset(buf1, 0, sizeof(buf1));
     if (fd != NULL) {
-        fread(buf,1,sizeof(buf),fd);
+        fread(buf1,1,sizeof(buf1),fd);
         fclose(fd);
     }
-    ALOGD("read_snd_card_info buf = %s",buf);
-    if (strstr (buf, "SPDIF")) {
+    fd = fopen(SND_CARD0_NODE,"r");
+    memset(buf0, 0, sizeof(buf0));
+    if (fd != NULL) {
+        fread(buf0,1,sizeof(buf0),fd);
+        fclose(fd);
+    }
+
+    fd = fopen(SND_CARD2_NODE,"r");
+    memset(buf2, 0, sizeof(buf2));
+    if (fd != NULL) {
+        fread(buf2,1,sizeof(buf2),fd);
+        fclose(fd);
+    }
+    ALOGD("read_snd_card_info buf0 = %s",buf0);
+    ALOGD("read_snd_card_info buf1 = %s",buf1);
+    ALOGD("read_snd_card_info buf2 = %s",buf2);
+    if (strstr (buf1, "SPDIF")) {
        ALOGD("now is 2 snd card mode");
        PCM_CARD = 0;
        PCM_CARD_HDMI = 0;
        PCM_CARD_SPDIF = 1;
-    } else if (strstr(buf, "HDMI")) {
+    } else if (strstr(buf1, "HDMI") || strstr(buf1, "rockchiphdmi")) {
         ALOGD("now is 3snd card mode");
         PCM_CARD = 0;
         PCM_CARD_HDMI = 1;
         PCM_CARD_SPDIF = 2;
+        if (strstr(buf0, "rockchipspdif") || strstr(buf0, "SPDIF")) {
+            PCM_CARD_SPDIF = 0;
+            PCM_CARD = 1;
+        }
+    } else if (strstr(buf0, "HDMI") || strstr(buf0, "rockchiphdmi")) {
+        PCM_CARD = 0;
+        PCM_CARD_HDMI = 0;
+        PCM_CARD_SPDIF = 1;
+        if (strstr(buf2, "rockchipspdif") || strstr(buf2, "SPDIF")) {
+            PCM_CARD = 1;
+            PCM_CARD_SPDIF = 2;
+        }
     }
     return 0;
 }
+#ifdef BOX_HAL
 
 /**
  * @brief read_hdmi_connect_state 

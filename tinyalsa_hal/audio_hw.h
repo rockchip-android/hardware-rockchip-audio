@@ -83,14 +83,12 @@ int PCM_CARD_SPDIF = 1;
 #define PCM_CARD_HDMI 0
 #define PCM_CARD_SPDIF 1
 #define PCM_CARD_USB 3*/
-#define PCM_TOTAL 4
 #else
-#define PCM_CARD 0
-#define PCM_CARD_HDMI 1
-#define PCM_CARD_SPDIF 2
-#define PCM_CARD_USB 3
-#define PCM_TOTAL 4 
+int PCM_CARD = 0;
+int PCM_CARD_HDMI = 1;
+int PCM_CARD_SPDIF = 2;
 #endif
+#define PCM_TOTAL 4
 #define PCM_DEVICE 0
 #define PCM_DEVICE_SCO 1
 #define PCM_DEVICE_VOICE 2
