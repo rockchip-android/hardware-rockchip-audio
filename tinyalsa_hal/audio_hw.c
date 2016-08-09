@@ -364,10 +364,17 @@ static int read_snd_card_info(void)
     ALOGD("read_snd_card_info buf1 = %s",buf1);
     ALOGD("read_snd_card_info buf2 = %s",buf2);
     if (strstr (buf1, "SPDIF")) {
-       ALOGD("now is 2 snd card mode");
-       PCM_CARD = 0;
-       PCM_CARD_HDMI = 0;
-       PCM_CARD_SPDIF = 1;
+       if (strstr(buf2, "HDMI") || strstr(buf2, "rockchiphdmi")) {
+           ALOGD("now is 3 snd card mode");
+           PCM_CARD = 0;
+           PCM_CARD_SPDIF = 1;
+           PCM_CARD_HDMI = 2;
+       } else {
+           ALOGD("now is 2 snd card mode");
+           PCM_CARD = 0;
+           PCM_CARD_HDMI = 0;
+           PCM_CARD_SPDIF = 1;
+       }
     } else if (strstr(buf1, "HDMI") || strstr(buf1, "rockchiphdmi")) {
         ALOGD("now is 3snd card mode");
         PCM_CARD = 0;
