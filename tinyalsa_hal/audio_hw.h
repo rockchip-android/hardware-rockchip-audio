@@ -79,10 +79,6 @@
 int PCM_CARD = 0;
 int PCM_CARD_HDMI = 0;
 int PCM_CARD_SPDIF = 1;
-/*#define PCM_CARD 0
-#define PCM_CARD_HDMI 0
-#define PCM_CARD_SPDIF 1
-#define PCM_CARD_USB 3*/
 #else
 int PCM_CARD = 0;
 int PCM_CARD_HDMI = 1;

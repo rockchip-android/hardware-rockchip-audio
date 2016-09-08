@@ -364,7 +364,7 @@ static int read_snd_card_info(void)
     ALOGD("read_snd_card_info buf1 = %s",buf1);
     ALOGD("read_snd_card_info buf2 = %s",buf2);
     if (strstr (buf1, "SPDIF")) {
-       if (strstr(buf2, "HDMI") || strstr(buf2, "rockchiphdmi")) {
+       if (strstr(buf2, "HDMI") || strstr(buf2, "rockchiphdmi") || strstr(buf0, "rockchipcdndpfb")) {
            ALOGD("now is 3 snd card mode");
            PCM_CARD = 0;
            PCM_CARD_SPDIF = 1;
@@ -375,7 +375,7 @@ static int read_snd_card_info(void)
            PCM_CARD_HDMI = 0;
            PCM_CARD_SPDIF = 1;
        }
-    } else if (strstr(buf1, "HDMI") || strstr(buf1, "rockchiphdmi")) {
+    } else if (strstr(buf1, "HDMI") || strstr(buf1, "rockchiphdmi") || strstr(buf0, "rockchipcdndpfb")) {
         ALOGD("now is 3snd card mode");
         PCM_CARD = 0;
         PCM_CARD_HDMI = 1;
@@ -384,7 +384,7 @@ static int read_snd_card_info(void)
             PCM_CARD_SPDIF = 0;
             PCM_CARD = 1;
         }
-    } else if (strstr(buf0, "HDMI") || strstr(buf0, "rockchiphdmi")) {
+    } else if (strstr(buf0, "HDMI") || strstr(buf0, "rockchiphdmi") || strstr(buf0, "rockchipcdndpfb")) {
         PCM_CARD = 0;
         PCM_CARD_HDMI = 0;
         PCM_CARD_SPDIF = 1;
@@ -2464,8 +2464,8 @@ static int adev_open(const hw_module_t* module, const char* name,
     if (property_get("audio_hal.in_period_size", value, NULL) > 0)
         pcm_config_in.period_size = atoi(value);
 
-#ifdef BOX_HAL
     read_snd_card_info();
+#ifdef BOX_HAL
     initchnsta();
     if (!pthread_create(&hdmi_uevent_t, NULL, audio_hdmi_thread, NULL)) {
         ALOGD("pthread_create error");
