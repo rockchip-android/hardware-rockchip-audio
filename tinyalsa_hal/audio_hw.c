@@ -433,6 +433,7 @@ static int start_output_stream(struct stream_out *out)
     char value[PROPERTY_VALUE_MAX] = "";
     struct audio_device *adev = out->dev;
     int type;
+    bool connect_hdmi = false;
 
     ALOGD("%s",__FUNCTION__);
     if (out == adev->outputs[OUTPUT_HDMI_MULTI]) {
@@ -444,18 +445,29 @@ static int start_output_stream(struct stream_out *out)
     out->disabled = false;
     scount = 0;
     read_hdmi_audioinfo();
+    property_get(MEDIA_SINK_AUDIO, value, "invalid");
+    if (strstr(value,"LPCM")) {
+        connect_hdmi = true;
+    }
 #ifdef BOX_HAL
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
         /*BOX hdmi & codec use the same i2s,so only config the codec card*/
         out->device &= ~AUDIO_DEVICE_OUT_SPEAKER;
     }
+#ifdef RK3228
+    if (direct_mode.output_mode == HW_PARAMS_FLAG_LPCM) {
+        if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
+            out->device |= AUDIO_DEVICE_OUT_SPEAKER;
+        }
+    }
+#endif
     out_dump(out, 0);
+    connect_hdmi = true;
 #endif
     route_pcm_open(getRouteFromDevice(out->device));
 
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
-        property_get(MEDIA_SINK_AUDIO, value, "invalid");
-        if (strstr(value,"LPCM")) {
+        if (connect_hdmi) {
             out->pcm[PCM_CARD_HDMI] = pcm_open(PCM_CARD_HDMI, out->pcm_device,
                                                 PCM_OUT | PCM_MONOTONIC, &out->config);
             if (out->pcm[PCM_CARD_HDMI] &&
@@ -1144,6 +1156,40 @@ static void reset_bitstream_buf(struct stream_out *out)
         }
     }
 }
+/**
+ * @brief set_bitstream_buf 
+ *
+ * @param in out length
+ */
+static void set_bitstream_buf(void * in, void* out, size_t length)
+{
+    int temp, p, j = 0;
+    char *ptr = (char *)in;
+    char *ptr_end = (char *)in+length;
+    char *newptr = (char *)out;
+
+    while (ptr < ptr_end) {
+        newptr[0] = (ptr[0]&0x1f)<<3;
+        newptr[1] = ((ptr[0]&0xe0)>>5)|((ptr[1]&0x1f)<<3);
+        newptr[2] = (ptr[1]&0xe0)>>5;
+        newptr[2] |= channel_status[scount];
+        temp = (newptr[2]<<24) | (newptr[1]<<16) | (newptr[0]<<8);
+        j=0;
+        p=0;
+        while (j<31) {
+            p ^= temp&0x1;
+            p &= 0x1;
+            temp >>= 1;
+            j++;
+        }
+        newptr[2] |= (p&0x01)<<6;
+        newptr[3] = 0x00;
+        scount++;
+        scount %= 384;
+        ptr +=2;
+        newptr +=4;
+    }
+}
 
 /**
  * @brief out_write 
@@ -1203,52 +1249,23 @@ false_alarm:
         goto exit;
     }
 
-#ifdef BOX_HAL
-    if ((direct_mode.output_mode == HW_PARAMS_FLAG_NLPCM) && (out->config.rate != 44100)) {
+    if ((direct_mode.output_mode == HW_PARAMS_FLAG_NLPCM)) {
         if (!direct_mode.hbr_Buf) {
             ALOGD("new hbr buffer!");
             direct_mode.hbr_Buf = (char *)malloc(newbytes);
         }
-        int temp;
-        int p;
-        int j=0;
-        char *ptr = (char*)buffer;
-        char *ptr_end = (char*)buffer+bytes;
-        char *newptr = (char*)direct_mode.hbr_Buf;
-        memset(direct_mode.hbr_Buf, 0x0, newbytes);
-
-        while(ptr<ptr_end){
-            newptr[0] = (ptr[0]&0x1f)<<3;
-            newptr[1] = ((ptr[0]&0xe0)>>5)|((ptr[1]&0x1f)<<3);
-            newptr[2] = (ptr[1]&0xe0)>>5;
-            newptr[2] |= channel_status[scount];
-            temp = (newptr[2]<<24) | (newptr[1]<<16) | (newptr[0]<<8);
-            j=0;
-            p=0;
-            while (j<31) {
-                p ^= temp&0x1;
-                p &= 0x1;
-                temp >>= 1;
-                j++;
-            }
-            newptr[2] |= (p&0x01)<<6;
-            newptr[3] = 0x00;
-            scount++;
-            scount %= 384;
-            ptr +=2;
-            newptr +=4;
-        }
+        memset(direct_mode.hbr_Buf, 0x00, newbytes);
+        set_bitstream_buf((void *)buffer, (void *)direct_mode.hbr_Buf, bytes);
     }
-#endif
+
     if (out->muted)
         memset((void *)buffer, 0, bytes);
-#ifdef BOX_HAL
+
     property_get("media.audio.record", value, NULL);
     prop_pcm = atoi(value);
     if (prop_pcm > 0) {
         dump_out_data(buffer, bytes, &prop_pcm);
     }
-#endif
 
 #if 0
     usleep(bytes * 1000000 / audio_stream_out_frame_size(stream) /
@@ -1259,10 +1276,16 @@ false_alarm:
     return bytes;
 #endif
     /* Write to all active PCMs */
-    if ((direct_mode.hbr_Buf) && (direct_mode.output_mode)) {
-        ret = pcm_write(out->pcm[0], (void *)direct_mode.hbr_Buf, newbytes);
-        if (ret != 0) {
-           goto exit;
+    if ((direct_mode.output_mode == HW_PARAMS_FLAG_NLPCM) && (direct_mode.hbr_Buf != NULL)) {
+        if (out->pcm[PCM_CARD_HDMI] != NULL) {
+            ret = pcm_write(out->pcm[PCM_CARD_HDMI], (void *)direct_mode.hbr_Buf, newbytes);
+            if (ret != 0) {
+               goto exit;
+            }
+        } else {
+            ALOGD("HDMI sound card not open , return !");
+            usleep(bytes * 1000000 / audio_stream_out_frame_size(stream) /
+                   out_get_sample_rate(&stream->common));
         }
     } else {
         for (i = 0; i < PCM_TOTAL; i++)
@@ -1882,11 +1905,18 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
             property_get(MEDIA_CFG_AUDIO_BYPASS, value, "-1");
             if(memcmp(value, "true", 4) == 0){
                 out->channel_mask = config->channel_mask;
-                if ((config->sample_rate == 44100) || (config->sample_rate == 48000) ||
-                    (config->sample_rate == 192000)) {
+                if (isCurIEC958SamplerateSupport(config->sample_rate)) {
                     out->config = pcm_config_direct;
                     out->config.rate = config->sample_rate;
                     out->output_direct = true;
+                    int channel = audio_channel_count_from_out_mask(config->channel_mask);
+                    if (channel == 8) {
+                        out->config = pcm_config_direct;
+                    } else if (config->sample_rate >= 176400) {
+                        out->config.period_size = 1024 * 4;
+                    } else {
+                        out->config.period_size = 2048;
+                    }
                     type = OUTPUT_HDMI_MULTI;
                 } else {
                     out->config = pcm_config;
@@ -1914,7 +1944,9 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
         } else if (devices & AUDIO_DEVICE_OUT_SPDIF) {
             out->channel_mask = config->channel_mask;
             out->config = pcm_config_direct;
-            if ((config->sample_rate == 48000) || (config->sample_rate == 44100)) {
+            if ((config->sample_rate == 48000) ||
+                (config->sample_rate == 32000) ||
+                (config->sample_rate == 44100)) {
                 out->config.rate = config->sample_rate;
                 out->config.format = PCM_FORMAT_S16_LE;
                 out->config.period_size = 2048;
@@ -1943,18 +1975,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     if ((type == OUTPUT_HDMI_MULTI) && (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL)) {
         direct_mode.output_mode = HW_PARAMS_FLAG_NLPCM;
         out->config.format = PCM_FORMAT_S24_LE;
-        if ((out->config.rate == 192000) && (out->config.channels == 8)) {
-            sethbrchnsta();
-            scount = 0;
-            ALOGD("now use the hbr mode");
-        } else if (out->config.rate == 44100) {
-            out->config.format = PCM_FORMAT_S16_LE;
-            ALOGD("now use normal direct output ");
-        } else {
-            setnlpcmchnsta();
-            scount = 0;
-            ALOGD("now use the nlpcm mode");
-        }
+        setChanSta(out->config.rate, out->config.channels);
     } else {
         direct_mode.output_mode = HW_PARAMS_FLAG_LPCM;
         out->config.format = PCM_FORMAT_S16_LE;

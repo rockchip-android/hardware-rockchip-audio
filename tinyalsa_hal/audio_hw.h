@@ -72,7 +72,7 @@
 #include <linux/fb.h>
 #include <hardware_legacy/uevent.h>
 
-#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.0.9"
+#define AUDIO_HAL_VERSION "ALSA Audio Version: V1.1.0"
 
 
 #ifdef BOX_HAL
@@ -153,6 +153,7 @@ struct pcm_config pcm_config = {
     .period_size = 512,
     .period_count = 6,
     .format = PCM_FORMAT_S16_LE,
+    .flag = HW_PARAMS_FLAG_LPCM,
 };
 
 struct pcm_config pcm_config_in = {
@@ -161,6 +162,7 @@ struct pcm_config pcm_config_in = {
     .period_size = 1024,
     .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
+    .flag = HW_PARAMS_FLAG_LPCM,
 };
 
 #else
@@ -170,6 +172,7 @@ struct pcm_config pcm_config = {
     .period_size = 512,
     .period_count = 6,
     .format = PCM_FORMAT_S16_LE,
+    .flag = HW_PARAMS_FLAG_LPCM,
 };
 
 struct pcm_config pcm_config_in = {
@@ -178,6 +181,7 @@ struct pcm_config pcm_config_in = {
     .period_size = 128,
     .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
+    .flag = HW_PARAMS_FLAG_LPCM,
 };
 #endif
 
@@ -187,6 +191,7 @@ struct pcm_config pcm_config_in_low_latency = {
     .period_size = 256,
     .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
+    .flag = HW_PARAMS_FLAG_LPCM,
 };
 
 struct pcm_config pcm_config_sco = {
@@ -195,6 +200,7 @@ struct pcm_config pcm_config_sco = {
     .period_size = 128,
     .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
+    .flag = HW_PARAMS_FLAG_LPCM,
 };
 
 struct pcm_config pcm_config_deep = {
@@ -207,6 +213,7 @@ struct pcm_config pcm_config_deep = {
     .period_size = 8192,
     .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
+    .flag = HW_PARAMS_FLAG_LPCM,
 };
 
 struct pcm_config pcm_config_hdmi_multi = {
@@ -215,6 +222,7 @@ struct pcm_config pcm_config_hdmi_multi = {
     .period_size = 1024,
     .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
+    .flag = HW_PARAMS_FLAG_LPCM,
 };
 
 struct pcm_config pcm_config_direct = {
@@ -223,6 +231,7 @@ struct pcm_config pcm_config_direct = {
     .period_size = 1024*8,
     .period_count = 3,
     .format = PCM_FORMAT_S16_LE,
+    .flag = HW_PARAMS_FLAG_NLPCM,
 };
 
 enum output_type {
@@ -531,6 +540,75 @@ void initchnsta(void)
     channel_status[CHASTA_BIT0*2+1] |= (0X1<<B_BIT_SHIFT);
 }
 
+void set176400chnsta()
+{
+	/* sampling frequency default 176.4K */
+	channel_status[CHASTA_BIT24*2] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT24*2+1] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT25*2] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT25*2+1] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT26*2] |= C_BIT_SET;
+	channel_status[CHASTA_BIT26*2+1] |= C_BIT_SET;
+	channel_status[CHASTA_BIT27*2] |= C_BIT_SET;
+	channel_status[CHASTA_BIT27*2+1] |= C_BIT_SET;
+	/* original sampling frequency */
+	channel_status[CHASTA_BIT36*2] |= C_BIT_SET;
+	channel_status[CHASTA_BIT36*2+1] |= C_BIT_SET;
+	channel_status[CHASTA_BIT37*2] |= C_BIT_SET;
+	channel_status[CHASTA_BIT37*2+1] |= C_BIT_SET;
+	channel_status[CHASTA_BIT38*2] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT38*2+1] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT39*2] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT39*2+1] &= C_BIT_UNSET;
+
+}
+void set32000chnsta()
+{
+	/* sampling frequency default 32K */
+	channel_status[CHASTA_BIT24*2] |= C_BIT_SET;
+	channel_status[CHASTA_BIT24*2+1] |= C_BIT_SET;
+	channel_status[CHASTA_BIT25*2] |= C_BIT_SET;
+	channel_status[CHASTA_BIT25*2+1] |= C_BIT_SET;
+	channel_status[CHASTA_BIT26*2] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT26*2+1] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT27*2] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT27*2+1] &= C_BIT_UNSET;
+	/* original sampling frequency */
+	channel_status[CHASTA_BIT36*2] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT36*2+1] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT37*2] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT37*2+1] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT38*2] |= C_BIT_SET;
+	channel_status[CHASTA_BIT38*2+1] |= C_BIT_SET;
+	channel_status[CHASTA_BIT39*2] |= C_BIT_SET;
+	channel_status[CHASTA_BIT39*2+1] |= C_BIT_SET;
+
+}
+void set44100chnsta()
+{
+	/* sampling frequency default 44.1K */
+	channel_status[CHASTA_BIT24*2] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT24*2+1] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT25*2] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT25*2+1] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT26*2] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT26*2+1] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT27*2] &= C_BIT_UNSET;
+	channel_status[CHASTA_BIT27*2+1] &= C_BIT_UNSET;
+	/* original sampling frequency */
+	channel_status[CHASTA_BIT36*2] |= C_BIT_SET;
+	channel_status[CHASTA_BIT36*2+1] |= C_BIT_SET;
+	channel_status[CHASTA_BIT37*2] |= C_BIT_SET;
+	channel_status[CHASTA_BIT37*2+1] |= C_BIT_SET;
+	channel_status[CHASTA_BIT38*2] |= C_BIT_SET;
+	channel_status[CHASTA_BIT38*2+1] |= C_BIT_SET;
+	channel_status[CHASTA_BIT39*2] |= C_BIT_SET;
+	channel_status[CHASTA_BIT39*2+1] |= C_BIT_SET;
+
+}
+
+
+
 /**
  * @brief setnlpcmchnsta 
  */
@@ -557,6 +635,31 @@ void setnlpcmchnsta(void)
 }
 
 /**
+ * @brief setddpchnsta
+ */
+void setddpchnsta(void)
+{
+       /* sampling frequency default 192k */
+       channel_status[CHASTA_BIT24*2] &= C_BIT_UNSET;
+       channel_status[CHASTA_BIT24*2+1] &= C_BIT_UNSET;
+       channel_status[CHASTA_BIT25*2] |= C_BIT_SET;
+       channel_status[CHASTA_BIT25*2+1] |= C_BIT_SET;
+       channel_status[CHASTA_BIT26*2] |= C_BIT_SET;
+       channel_status[CHASTA_BIT26*2+1] |= C_BIT_SET;
+       channel_status[CHASTA_BIT27*2] |= C_BIT_SET;
+       channel_status[CHASTA_BIT27*2+1] |= C_BIT_SET;
+       /* original sampling frequency */
+       channel_status[CHASTA_BIT36*2] |= C_BIT_SET;
+       channel_status[CHASTA_BIT36*2+1] |= C_BIT_SET;
+       channel_status[CHASTA_BIT37*2] &= C_BIT_UNSET;
+       channel_status[CHASTA_BIT37*2+1] &= C_BIT_UNSET;
+       channel_status[CHASTA_BIT38*2] &= C_BIT_UNSET;
+       channel_status[CHASTA_BIT38*2+1] &= C_BIT_UNSET;
+       channel_status[CHASTA_BIT39*2] &= C_BIT_UNSET;
+       channel_status[CHASTA_BIT39*2+1] &= C_BIT_UNSET;
+}
+
+/**
  * @brief sethbrchnsta 
  */
 void sethbrchnsta(void)
@@ -579,6 +682,39 @@ void sethbrchnsta(void)
        channel_status[CHASTA_BIT38*2+1] |= C_BIT_SET;
        channel_status[CHASTA_BIT39*2] &= C_BIT_UNSET;
        channel_status[CHASTA_BIT39*2+1] &= C_BIT_UNSET;
+}
+
+void setChanSta(int samplerate, int channel) {
+    if (channel == 8) {
+        sethbrchnsta();
+    } else {
+        switch (samplerate) {
+        case 192000:
+            setddpchnsta();
+            break;
+        case 176400:
+            set176400chnsta();
+            break;
+        case 44100:
+            set44100chnsta();
+            break;
+        case 32000:
+            set32000chnsta();
+            break;
+        case 48000:
+        default:
+            setnlpcmchnsta();
+            break;
+        }
+    }
+}
+
+bool isCurIEC958SamplerateSupport(int samplerate) {
+    if ((samplerate == 44100) || (samplerate== 48000) || (samplerate == 32000) ||
+        (samplerate == 176400) || (samplerate == 192000)) {
+        return true;
+    }
+    return false;
 }
 
 /**
