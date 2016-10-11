@@ -22,6 +22,7 @@
 #include "wm8960_config.h"
 #include "es8396_config.h"
 #include "rt5651_config.h"
+#include "es8316_config.h"
 
 struct alsa_sound_card_config
 {
@@ -78,6 +79,10 @@ struct alsa_sound_card_config sound_card_config_list[] = {
     {
         .sound_card_name = "realtekrt5651co",
         .route_table = &rt5651_config_table,
+    },
+    {
+        .sound_card_name = "rockchipes8316c",
+        .route_table = &es8316_config_table,
     }
 };
 
