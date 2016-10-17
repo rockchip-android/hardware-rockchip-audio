@@ -392,6 +392,14 @@ static int read_snd_card_info(void)
             PCM_CARD = 1;
             PCM_CARD_SPDIF = 2;
         }
+    } else if (strstr(buf2, "HDMI") || strstr(buf2, "rockchiphdmi")) {
+        PCM_CARD = 0;
+        PCM_CARD_HDMI = 2;
+        PCM_CARD_SPDIF = 1;
+        if (strstr(buf0, "rockchipspdif") || strstr(buf0, "SPDIF")) {
+            PCM_CARD = 1;
+            PCM_CARD_SPDIF = 0;
+        }
     }
     return 0;
 }
@@ -1009,7 +1017,9 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
                     !adev->outputs[OUTPUT_HDMI_MULTI] ||
                     adev->outputs[OUTPUT_HDMI_MULTI]->standby)) {
                 adev->out_device = output_devices(out) | val;
+#ifndef RK3228
                 do_out_standby(out);
+#endif
 
             }
             out->device = val;
