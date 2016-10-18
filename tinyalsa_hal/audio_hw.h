@@ -89,6 +89,8 @@ int PCM_CARD_SPDIF = 2;
 #define PCM_DEVICE_SCO 1
 #define PCM_DEVICE_VOICE 2
 #define PCM_DEVICE_DEEP 3
+/* for bt client call */
+#define PCM_DEVICE_HFP 1
 
 #define MIXER_CARD 0
 
@@ -203,6 +205,15 @@ struct pcm_config pcm_config_sco = {
     .flag = HW_PARAMS_FLAG_LPCM,
 };
 
+/* for bt client call*/
+struct pcm_config pcm_config_hfp = {
+    .channels = 2,
+    .rate = 44100,
+    .period_size = 256,
+    .period_count = 4,
+    .format = PCM_FORMAT_S16_LE,
+};
+
 struct pcm_config pcm_config_deep = {
     .channels = 2,
     .rate = 44100,
@@ -260,11 +271,14 @@ struct audio_device {
                            * and output device IDs */
     struct pcm *pcm_voice_out;
     struct pcm *pcm_sco_out;
+    struct pcm *pcm_hfp_out;
     struct pcm *pcm_voice_in;
     struct pcm *pcm_sco_in;
+    struct pcm *pcm_hfp_in;
     int hdmi_drv_fd;    /* either an fd >= 0 or -1 */
     audio_channel_mask_t in_channel_mask;
     unsigned int sco_on_count;
+    unsigned int hfp_on_count;
 
     struct stream_out *outputs[OUTPUT_TOTAL];
     pthread_mutex_t lock_outputs; /* see note below on mutex acquisition order */

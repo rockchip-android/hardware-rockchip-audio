@@ -42,7 +42,7 @@
 #include "alsa_audio.h"
 #include "audio_hw.h"
 #include "audio_hw_hdmi.h"
-
+#include <system/audio.h>
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -212,6 +212,57 @@ static void stop_bt_sco(struct audio_device *adev) {
     pcm_close(adev->pcm_sco_out);
     pcm_close(adev->pcm_voice_in);
     pcm_close(adev->pcm_sco_in);
+}
+
+/**
+ * @brief start_bt_hfp
+ * must be called with the hw device mutex locked, OK to hold other mutexes
+ *
+ * @param adev
+ */
+static void start_bt_hfp(struct audio_device *adev) {
+    if (adev->hfp_on_count++ > 0)
+        return;
+
+    adev->pcm_hfp_out = pcm_open(PCM_CARD, PCM_DEVICE_HFP, PCM_OUT | PCM_MONOTONIC,
+                              &pcm_config_hfp);
+    if (adev->pcm_hfp_out && !pcm_is_ready(adev->pcm_hfp_out)) {
+        ALOGE("pcm_open(HFP_OUT) failed: %s", pcm_get_error(adev->pcm_hfp_out));
+        goto err_hfp_out;
+    }
+    adev->pcm_hfp_in = pcm_open(PCM_CARD, PCM_DEVICE_HFP, PCM_IN,
+                                 &pcm_config_hfp);
+    if (adev->pcm_hfp_in && !pcm_is_ready(adev->pcm_hfp_in)) {
+        ALOGE("pcm_open(HFP_IN) failed: %s", pcm_get_error(adev->pcm_hfp_in));
+        goto err_hfp_in;
+    }
+
+    pcm_start(adev->pcm_hfp_out);
+    pcm_start(adev->pcm_hfp_in);
+
+    return;
+
+err_hfp_in:
+    pcm_close(adev->pcm_hfp_in);
+err_hfp_out:
+    pcm_close(adev->pcm_hfp_out);
+}
+
+/**
+ * @brief stop_bt_hfp
+ * must be called with the hw device mutex locked, OK to hold other mutexes
+ *
+ * @param adev
+ */
+static void stop_bt_hfp(struct audio_device *adev) {
+    if (adev->hfp_on_count == 0 || --adev->hfp_on_count > 0)
+        return;
+
+    pcm_stop(adev->pcm_hfp_out);
+    pcm_stop(adev->pcm_hfp_in);
+
+    pcm_close(adev->pcm_hfp_out);
+    pcm_close(adev->pcm_hfp_in);
 }
 
 /**
@@ -2079,7 +2130,37 @@ static void adev_close_output_stream(struct audio_hw_device *dev,
  */
 static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 {
-    return 0;
+    struct audio_device *adev = (struct audio_device *)dev;
+    struct str_parms *parms = NULL;
+    char value[32] = "";
+    int ret = 0;
+    int val = 0;
+
+    ALOGD("%s: kvpairs = %s", __func__, kvpairs);
+    parms = str_parms_create_str(kvpairs);
+    pthread_mutex_lock(&adev->lock);
+
+    if (0 == ret) {
+      /* HFP client enable/disable */
+      val = str_parms_get_str(parms, "hfp_enable", value, sizeof(value));
+      if (0 <= val) {
+         if (strcmp(value, "true") == 0) {
+           ALOGD("Enable HFP client feature!");
+	   route_pcm_open(SPEAKER_INCALL_ROUTE);
+	   start_bt_hfp(adev);
+         } else if (strcmp(value, "false") == 0) {
+           ALOGD("Disable HFP client feature!");
+	   stop_bt_hfp(adev);
+	   route_pcm_open(INCALL_OFF_ROUTE);
+         } else {
+           ALOGE("Unknown HFP client state %s!!!", value);
+           ret = -EINVAL;
+         }
+      }
+    }
+
+    pthread_mutex_unlock(&adev->lock);
+    return ret;
 }
 
 /**
