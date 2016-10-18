@@ -16,7 +16,7 @@
 
 /**
  * @file audio_hw.h
- * @brief 
+ * @brief
  *                 ALSA Audio Git Log
  * - V0.1.0:add alsa audio hal,just support 312x now.
  * - V0.2.0:remove unused variable.
@@ -50,16 +50,16 @@
 #include <cutils/log.h>
 #include <cutils/properties.h>
 #include <cutils/str_parms.h>
-     
+
 #include <hardware/audio.h>
 #include <hardware/hardware.h>
-     
+
 #include <linux/videodev2.h>
-     
+
 #include <system/audio.h>
-     
+
 #include <tinyalsa/asoundlib.h>
-     
+
 #include <audio_utils/resampler.h>
 #include <audio_route/audio_route.h>
 
@@ -88,7 +88,7 @@ int PCM_CARD_SPDIF = 2;
 #define PCM_DEVICE 0
 #define PCM_DEVICE_SCO 1
 #define PCM_DEVICE_VOICE 2
-#define PCM_DEVICE_DEEP 3 
+#define PCM_DEVICE_DEEP 3
 
 #define MIXER_CARD 0
 
@@ -505,10 +505,10 @@ int prop_pcm;//for debug
 static void do_out_standby(struct stream_out *out);
 
 /**
- * @brief initchnsta 
+ * @brief initchnsta
  */
 void initchnsta(void)
-{   
+{
     memset(channel_status, 0x0, CHASTA_SUB_NUM);
     channel_status[CHASTA_BIT1*2] = 1;
     channel_status[CHASTA_BIT1*2+1] = 1;
@@ -610,7 +610,7 @@ void set44100chnsta()
 
 
 /**
- * @brief setnlpcmchnsta 
+ * @brief setnlpcmchnsta
  */
 void setnlpcmchnsta(void)
 {
@@ -660,7 +660,7 @@ void setddpchnsta(void)
 }
 
 /**
- * @brief sethbrchnsta 
+ * @brief sethbrchnsta
  */
 void sethbrchnsta(void)
 {
@@ -718,7 +718,7 @@ bool isCurIEC958SamplerateSupport(int samplerate) {
 }
 
 /**
- * @brief dumpchnsta 
+ * @brief dumpchnsta
  */
 void dumpchnsta()
 {
