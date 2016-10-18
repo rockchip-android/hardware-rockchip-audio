@@ -172,7 +172,7 @@ const struct config_control es8396_hands_free_mic_capture_controls[] = {
 };
 
 const struct config_control es8396_playback_off_controls[] = {
-/*
+#if 0
     {
         .ctl_name = "HPR Mix DACR2HPMIX Switch",
         .int_val = {off},
@@ -189,7 +189,7 @@ const struct config_control es8396_playback_off_controls[] = {
         .ctl_name = "HP Amp Switch",
         .int_val = {off},
     },
-*/
+#endif
 };
 
 const struct config_control es8396_capture_off_controls[] = {
@@ -229,6 +229,78 @@ const struct config_control es8396_capture_off_controls[] = {
 
 const struct config_control es8396_incall_off_controls[] = {
     /*TODO*/
+    /*downlink*/
+    {
+        .ctl_name = "HPR Mix DACR2HPMIX Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "HPL Mix DACL2HPMIX Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "DAC_1 Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "HP Amp Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "DACSRC Mux",
+        .int_val = {0},
+    },
+    /*uplink*/
+    {
+        .ctl_name = "LLNMIX2LPGA Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "RLNMIX2RPGA Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "LLNIN Mix PMICDSE2LLNMIX Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "RLNIN Mix NMICDSE2RLNMIX Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "AMIC Mux Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "MASTERSDPO Mux",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "ADC_1 Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "Internal Mic Switch",
+        .int_val = {off},
+    },
+#if 1
+    {
+        .ctl_name = "RDMIX2 Mux",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "LDMIX2 Mux",
+        .int_val = {0},
+    },
+    {
+        .ctl_name = "RDMIX1 Mux",
+        .int_val = {3},
+    },
+    {
+        .ctl_name = "LDMIX1 Mux",
+        .int_val = {0},
+    },
+#endif
 };
 
 const struct config_route_table es8396_config_table = {
