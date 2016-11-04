@@ -513,7 +513,7 @@ struct mixer* pre_mixer;
 struct direct_mode_t direct_mode = {HW_PARAMS_FLAG_LPCM, NULL};
 unsigned char channel_status[CHASTA_SUB_NUM];
 static int scount = 0;
-pthread_t hdmi_uevent_t = NULL;
+pthread_t hdmi_uevent_t = 0;
 int prop_pcm;//for debug
 
 static void do_out_standby(struct stream_out *out);
