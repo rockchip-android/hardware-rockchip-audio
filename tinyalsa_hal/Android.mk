@@ -42,6 +42,9 @@ endif
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk322x)
 	LOCAL_CFLAGS += -DRK3228
 endif
+ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)), rk3399_laptop)
+LOCAL_CFLAGS += -DRK3399_LAPTOP
+endif
 LOCAL_SHARED_LIBRARIES := liblog libcutils libtinyalsa libaudioutils libaudioroute libhardware_legacy
 LOCAL_STATIC_LIBRARIES := libspeex
 LOCAL_MODULE_TAGS := optional

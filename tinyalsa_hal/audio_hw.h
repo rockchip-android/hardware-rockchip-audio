@@ -166,7 +166,24 @@ struct pcm_config pcm_config_in = {
     .format = PCM_FORMAT_S16_LE,
     .flag = HW_PARAMS_FLAG_LPCM,
 };
+#elif defined RK3399_LAPTOP
+struct pcm_config pcm_config = {
+    .channels = 2,
+    .rate = 48000,
+    .period_size = 512,
+    .period_count = 6,
+    .format = PCM_FORMAT_S16_LE,
+    .flag = HW_PARAMS_FLAG_LPCM,
+};
 
+struct pcm_config pcm_config_in = {
+    .channels = 2,
+    .rate = 48000,
+    .period_size = 128,
+    .period_count = 4,
+    .format = PCM_FORMAT_S16_LE,
+    .flag = HW_PARAMS_FLAG_LPCM,
+};
 #else
 struct pcm_config pcm_config = {
     .channels = 2,
