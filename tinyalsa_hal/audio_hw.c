@@ -1949,7 +1949,8 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     int ret;
     enum output_type type;
 
-    ALOGD("audio hal adev_open_output_stream devices = 0x%x, flags = %d",devices, flags);
+    ALOGD("audio hal adev_open_output_stream devices = 0x%x, flags = %d, samplerate = %d",
+		    devices, flags, config->sample_rate);
     out = (struct stream_out *)calloc(1, sizeof(struct stream_out));
     if (!out)
         return -ENOMEM;
@@ -1973,6 +1974,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
                     int channel = audio_channel_count_from_out_mask(config->channel_mask);
                     if (channel == 8) {
                         out->config = pcm_config_direct;
+			out->config.rate = config->sample_rate;
                     } else if (config->sample_rate >= 176400) {
                         out->config.period_size = 1024 * 4;
                     } else {
