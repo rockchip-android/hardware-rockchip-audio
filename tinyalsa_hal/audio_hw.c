@@ -2035,7 +2035,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 
     ALOGD("out->config.rate = %d, out->config.channels = %d", out->config.rate, out->config.channels);
     direct_mode.output_mode = HW_PARAMS_FLAG_LPCM;
-    if ((type == OUTPUT_HDMI_MULTI) && (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL)) {
+    if ((type == OUTPUT_HDMI_MULTI) && (devices & AUDIO_DEVICE_OUT_AUX_DIGITAL)) {
         direct_mode.output_mode = HW_PARAMS_FLAG_NLPCM;
         out->config.format = PCM_FORMAT_S24_LE;
         setChanSta(out->config.rate, out->config.channels);
