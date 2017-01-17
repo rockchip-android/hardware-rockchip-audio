@@ -492,7 +492,7 @@ static int start_output_stream(struct stream_out *out)
     char value[PROPERTY_VALUE_MAX] = "";
     struct audio_device *adev = out->dev;
     int type;
-    bool connect_hdmi = false;
+    bool connect_hdmi = true;
 
     ALOGD("%s",__FUNCTION__);
     if (out == adev->outputs[OUTPUT_HDMI_MULTI]) {
@@ -1963,7 +1963,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 
     char value[PROPERTY_VALUE_MAX] = "";
     if (flags & AUDIO_OUTPUT_FLAG_DIRECT) {
-        if (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL){
+        if (devices & AUDIO_DEVICE_OUT_AUX_DIGITAL){
             property_get(MEDIA_CFG_AUDIO_BYPASS, value, "-1");
             if(memcmp(value, "true", 4) == 0){
                 out->channel_mask = config->channel_mask;
