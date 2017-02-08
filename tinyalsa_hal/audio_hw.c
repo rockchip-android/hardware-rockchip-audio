@@ -521,8 +521,8 @@ static int start_output_stream(struct stream_out *out)
     }
 #endif
     out_dump(out, 0);
-    connect_hdmi = true;
 #endif
+    connect_hdmi = true;
     route_pcm_open(getRouteFromDevice(out->device));
 
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
