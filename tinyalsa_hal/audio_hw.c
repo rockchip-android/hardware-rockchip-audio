@@ -508,6 +508,10 @@ static int start_output_stream(struct stream_out *out)
     if (strstr(value,"LPCM")) {
         connect_hdmi = true;
     }
+    property_get(MEDIA_AUDIO_DEVICE, value, "");
+    if (atoi(value) == 8) {
+        out->device &= ~AUDIO_DEVICE_OUT_AUX_DIGITAL;
+    }
 #ifdef BOX_HAL
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
         /*BOX hdmi & codec use the same i2s,so only config the codec card*/

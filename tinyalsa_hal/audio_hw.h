@@ -118,6 +118,7 @@ int PCM_CARD_SPDIF = 2;
 #define MEDIA_SINK_AUDIO        "media.sink.audio"
 #define MEDIA_CFG_AUDIO_BYPASS  "media.cfg.audio.bypass"
 #define MEDIA_CFG_AUDIO_MUL     "media.cfg.audio.mul"
+#define MEDIA_AUDIO_DEVICE      "persist.audio.currentplayback"
 
 /* b, p, c, u, v, 0, 0, 0*/
 #define B_BIT_SHIFT    7
