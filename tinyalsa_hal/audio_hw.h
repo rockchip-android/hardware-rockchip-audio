@@ -84,6 +84,7 @@ int PCM_CARD = 0;
 int PCM_CARD_HDMI = 1;
 int PCM_CARD_SPDIF = 2;
 #endif
+int PCM_BT = 3;
 #define PCM_TOTAL 4
 #define PCM_DEVICE 0
 #define PCM_DEVICE_SCO 1
@@ -171,8 +172,8 @@ struct pcm_config pcm_config_in = {
 struct pcm_config pcm_config = {
     .channels = 2,
     .rate = 48000,
-    .period_size = 512,
-    .period_count = 6,
+    .period_size = 480,
+    .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
     .flag = HW_PARAMS_FLAG_LPCM,
 };
@@ -180,7 +181,7 @@ struct pcm_config pcm_config = {
 struct pcm_config pcm_config_in = {
     .channels = 2,
     .rate = 48000,
-    .period_size = 128,
+    .period_size = 120,
     .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
     .flag = HW_PARAMS_FLAG_LPCM,
@@ -231,7 +232,24 @@ struct pcm_config pcm_config_hfp = {
     .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
 };
+#ifdef BT_AP_SCO
+struct pcm_config pcm_config_ap_sco = {
+    .channels = 2,
+    .rate = 8000,
+    .period_size = 80,
+    .period_count = 4,
+    .format = PCM_FORMAT_S16_LE,
+};
 
+struct pcm_config pcm_config_in_bt = {
+    .channels = 2,
+    .rate = 8000,
+    .period_size = 120,
+    .period_count = 4,
+    .format = PCM_FORMAT_S16_LE,
+    .flag = HW_PARAMS_FLAG_LPCM,
+};
+#endif
 struct pcm_config pcm_config_deep = {
     .channels = 2,
     .rate = 44100,
@@ -302,6 +320,7 @@ struct audio_device {
     pthread_mutex_t lock_outputs; /* see note below on mutex acquisition order */
     int pre_output_device_id;
     int pre_input_source_id;
+    unsigned int mode;
 
 };
 
@@ -327,6 +346,7 @@ struct stream_out {
     bool output_direct;
 
     struct audio_device *dev;
+    struct resampler_itfe *resampler;
 };
 
 struct stream_in {

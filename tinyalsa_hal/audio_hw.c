@@ -148,6 +148,7 @@ static void force_non_hdmi_out_standby(struct audio_device *adev)
  * @param adev
  */
 static void start_bt_sco(struct audio_device *adev) {
+#ifdef VOICE_SUPPORT
     if (adev->sco_on_count++ > 0)
         return;
 
@@ -180,7 +181,7 @@ static void start_bt_sco(struct audio_device *adev) {
     pcm_start(adev->pcm_sco_out);
     pcm_start(adev->pcm_voice_in);
     pcm_start(adev->pcm_sco_in);
-
+#endif
     return;
 
 err_sco_in:
@@ -200,6 +201,7 @@ err_voice_out:
  * @param adev
  */
 static void stop_bt_sco(struct audio_device *adev) {
+#ifdef VOICE_SUPPORT
     if (adev->sco_on_count == 0 || --adev->sco_on_count > 0)
         return;
 
@@ -212,6 +214,8 @@ static void stop_bt_sco(struct audio_device *adev) {
     pcm_close(adev->pcm_sco_out);
     pcm_close(adev->pcm_voice_in);
     pcm_close(adev->pcm_sco_in);
+#endif
+    return;
 }
 
 /**
@@ -452,6 +456,17 @@ static int read_snd_card_info(void)
             PCM_CARD_SPDIF = 0;
         }
     }
+#ifdef RK3399_LAPTOP
+    if (strstr (buf1, "rockchipbt")) {
+        PCM_CARD = 0;
+        PCM_BT = 1;
+        PCM_CARD_HDMI = 2;
+    } else if (strstr(buf1, "rockchipcdndpso")) {
+        PCM_CARD = 0;
+        PCM_CARD_HDMI = 1;
+        PCM_BT = 2;
+    }
+#endif
     return 0;
 }
 #ifdef BOX_HAL
@@ -493,6 +508,7 @@ static int start_output_stream(struct stream_out *out)
     struct audio_device *adev = out->dev;
     int type;
     bool connect_hdmi = true;
+    int ret = 0;
 
     ALOGD("%s",__FUNCTION__);
     if (out == adev->outputs[OUTPUT_HDMI_MULTI]) {
@@ -578,85 +594,23 @@ static int start_output_stream(struct stream_out *out)
 
     adev->out_device |= out->device;
 
-    if (out->device & AUDIO_DEVICE_OUT_ALL_SCO)
+    if (out->device & AUDIO_DEVICE_OUT_ALL_SCO) {
         start_bt_sco(adev);
-
-    return 0;
-}
-
-/**
- * @brief start_input_stream 
- * must be called with input stream and hw device mutexes locked 
- *
- * @param in
- *
- * @returns 
- */
-static int start_input_stream(struct stream_in *in)
-{
-    struct audio_device *adev = in->dev;
-
-    in_dump(in, 0);
-    route_pcm_open(getRouteFromDevice(in->device | AUDIO_DEVICE_BIT_IN));
-
-    in->pcm = pcm_open(PCM_CARD, PCM_DEVICE, PCM_IN, in->config);
-    
-    if (in->pcm && !pcm_is_ready(in->pcm)) {
-        ALOGE("pcm_open() failed: %s", pcm_get_error(in->pcm));
-        pcm_close(in->pcm);
-        return -ENOMEM;
+#ifdef BT_AP_SCO // HARD CODE FIXME
+        out->pcm[PCM_BT] = pcm_open(PCM_BT, 0,
+                                    PCM_OUT | PCM_MONOTONIC, &pcm_config_ap_sco);
+        ret = create_resampler(48000,
+                               8000,
+                               2,
+                               RESAMPLER_QUALITY_DEFAULT,
+                               NULL,
+                               &out->resampler);
+        if (ret != 0) {
+            ret = -EINVAL;
+        }
+#endif
     }
-
-    /* if no supported sample rate is available, use the resampler */
-    if (in->resampler)
-        in->resampler->reset(in->resampler);
-
-    in->frames_in = 0;
-    adev->input_source = in->input_source;
-    adev->in_device = in->device;
-    adev->in_channel_mask = in->channel_mask;
-
-
-    if (in->device & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET)
-        start_bt_sco(adev);
-
-    /* initialize volume ramp */
-    in->ramp_frames = (CAPTURE_START_RAMP_MS * in->requested_rate) / 1000;
-    in->ramp_step = (uint16_t)(USHRT_MAX / in->ramp_frames);
-    in->ramp_vol = 0;;
-
-
     return 0;
-}
-
-/**
- * @brief get_input_buffer_size 
- *
- * @param sample_rate
- * @param format
- * @param channel_count
- * @param is_low_latency
- *
- * @returns 
- */
-static size_t get_input_buffer_size(unsigned int sample_rate,
-                                    audio_format_t format,
-                                    unsigned int channel_count,
-                                    bool is_low_latency)
-{
-    const struct pcm_config *config = is_low_latency ?
-            &pcm_config_in_low_latency : &pcm_config_in;
-    size_t size;
-
-    /*
-     * take resampling into account and return the closest majoring
-     * multiple of 16 frames, as audioflinger expects audio buffers to
-     * be a multiple of 16 frames
-     */
-    size = (config->period_size * sample_rate) / config->rate;
-    size = ((size + 15) / 16) * 16;
-
-    return size * channel_count * audio_bytes_per_sample(format);
 }
 
 /**
@@ -739,6 +693,126 @@ static void release_buffer(struct resampler_buffer_provider *buffer_provider,
 
     in->frames_in -= buffer->frame_count;
 }
+
+/**
+ * @brief start_input_stream
+ * must be called with input stream and hw device mutexes locked
+ *
+ * @param in
+ *
+ * @returns
+ */
+static int start_input_stream(struct stream_in *in)
+{
+    struct audio_device *adev = in->dev;
+    int  ret = 0;
+
+    in_dump(in, 0);
+    route_pcm_open(getRouteFromDevice(in->device | AUDIO_DEVICE_BIT_IN));
+#ifdef RK3399_LAPTOP //HARD CODE FIXME
+    if ((in->device & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) &&
+        (adev->mode == AUDIO_MODE_IN_COMMUNICATION)) {
+        in->config = &pcm_config_in_bt;
+        in->pcm = pcm_open(PCM_BT, PCM_DEVICE, PCM_IN, in->config);
+
+        if (in->resampler) {
+            release_resampler(in->resampler);
+
+            in->buf_provider.get_next_buffer = get_next_buffer;
+            in->buf_provider.release_buffer = release_buffer;
+
+            ret = create_resampler(8000,
+                                   16000,
+                                   2,
+                                   RESAMPLER_QUALITY_DEFAULT,
+                                   &in->buf_provider,
+                                   &in->resampler);
+            if (ret != 0) {
+                ret = -EINVAL;
+            }
+        }
+    } else {
+	    in->config = &pcm_config_in;
+            in->pcm = pcm_open(PCM_CARD, PCM_DEVICE, PCM_IN, in->config);
+
+            if (in->resampler) {
+	        release_resampler(in->resampler);
+
+            in->buf_provider.get_next_buffer = get_next_buffer;
+            in->buf_provider.release_buffer = release_buffer;
+
+            ret = create_resampler(48000,
+                                   16000,
+                                   2,
+                                   RESAMPLER_QUALITY_DEFAULT,
+                                   &in->buf_provider,
+                                   &in->resampler);
+            if (ret != 0) {
+                ret = -EINVAL;
+           }
+        }
+    }
+#else
+    in->pcm = pcm_open(PCM_CARD, PCM_DEVICE, PCM_IN, in->config);
+#endif
+    if (in->pcm && !pcm_is_ready(in->pcm)) {
+        ALOGE("pcm_open() failed: %s", pcm_get_error(in->pcm));
+        pcm_close(in->pcm);
+        return -ENOMEM;
+    }
+
+    /* if no supported sample rate is available, use the resampler */
+    if (in->resampler)
+        in->resampler->reset(in->resampler);
+
+    in->frames_in = 0;
+    adev->input_source = in->input_source;
+    adev->in_device = in->device;
+    adev->in_channel_mask = in->channel_mask;
+
+
+    if (in->device & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET)
+        start_bt_sco(adev);
+
+    /* initialize volume ramp */
+    in->ramp_frames = (CAPTURE_START_RAMP_MS * in->requested_rate) / 1000;
+    in->ramp_step = (uint16_t)(USHRT_MAX / in->ramp_frames);
+    in->ramp_vol = 0;;
+
+
+    return 0;
+}
+
+/**
+ * @brief get_input_buffer_size
+ *
+ * @param sample_rate
+ * @param format
+ * @param channel_count
+ * @param is_low_latency
+ *
+ * @returns
+ */
+static size_t get_input_buffer_size(unsigned int sample_rate,
+                                    audio_format_t format,
+                                    unsigned int channel_count,
+                                    bool is_low_latency)
+{
+    const struct pcm_config *config = is_low_latency ?
+            &pcm_config_in_low_latency : &pcm_config_in;
+    size_t size;
+
+    /*
+     * take resampling into account and return the closest majoring
+     * multiple of 16 frames, as audioflinger expects audio buffers to
+     * be a multiple of 16 frames
+     */
+    size = (config->period_size * sample_rate) / config->rate;
+    size = ((size + 15) / 16) * 16;
+
+    return size * channel_count * audio_bytes_per_sample(format);
+}
+
 
 /**
  * @brief read_frames 
@@ -1355,9 +1429,27 @@ false_alarm:
     } else {
         for (i = 0; i < PCM_TOTAL; i++)
             if (out->pcm[i]) {
-                ret = pcm_write(out->pcm[i], (void *)buffer, bytes);
-                if (ret != 0)
-                    break;
+                if (i == PCM_BT) {
+                    // HARD CODE FIXME 48000 stereo -> 8000 stereo
+                    size_t inFrameCount = bytes/2/2;
+                    size_t outFrameCount = inFrameCount/6;
+                    int16_t out_buffer[outFrameCount*2];
+                    memset(out_buffer, 0x00, outFrameCount*2);
+
+                    out->resampler->resample_from_input(out->resampler,
+                                                        (const int16_t *)buffer,
+                                                        &inFrameCount,
+                                                        out_buffer,
+                                                        &outFrameCount);
+
+                    ret = pcm_write(out->pcm[PCM_BT], (void *)out_buffer, outFrameCount*2*2);
+                    if (ret != 0)
+                        break;
+                } else {
+                        ret = pcm_write(out->pcm[i], (void *)buffer, bytes);
+                        if (ret != 0)
+                            break;
+                }
             }
     }
     if (ret == 0) {
@@ -2244,6 +2336,11 @@ static int adev_set_master_volume(struct audio_hw_device *dev, float volume)
  */
 static int adev_set_mode(struct audio_hw_device *dev, audio_mode_t mode)
 {
+    struct audio_device *adev = (struct audio_device *)dev;
+
+    ALOGD("%s: set_mode = %d", __func__, mode);
+    adev->mode = mode;
+
     return 0;
 }
 
@@ -2372,6 +2469,11 @@ static int adev_open_input_stream(struct audio_hw_device *dev,
     in->flags = flags;
     struct pcm_config *pcm_config = flags & AUDIO_INPUT_FLAG_FAST ?
             &pcm_config_in_low_latency : &pcm_config_in;
+#ifdef BT_AP_SCO
+    if (adev->mode == AUDIO_MODE_IN_COMMUNICATION && in->device & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) {
+       pcm_config = &pcm_config_in_bt;
+    }
+#endif
     in->config = pcm_config;
 
     in->buffer = malloc(pcm_config->period_size * pcm_config->channels
