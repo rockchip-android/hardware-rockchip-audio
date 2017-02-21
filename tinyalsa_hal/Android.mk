@@ -50,6 +50,10 @@ ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk322x)
 endif
 ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)), laptop)
 LOCAL_CFLAGS += -DRK3399_LAPTOP
+LOCAL_CFLAGS += -DBT_AP_SCO
+endif
+ifeq ($(AUD_VOICE_CONFIG),voice_support)
+LOCAL_CFLAGS += -DVOICE_SUPPORT
 endif
 LOCAL_SHARED_LIBRARIES := liblog libcutils libtinyalsa libaudioutils libaudioroute libhardware_legacy
 LOCAL_STATIC_LIBRARIES := libspeex

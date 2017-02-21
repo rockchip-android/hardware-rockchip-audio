@@ -101,6 +101,10 @@ const struct config_control cx2072_hands_free_mic_capture_controls[] = {
 };
 
 const struct config_control cx2072_bluetooth_sco_mic_capture_controls[] = {
+    {
+        .ctl_name = "PortG Mux",
+        .int_val = {1},
+    },
 };
 
 const struct config_control cx2072_playback_off_controls[] = {
