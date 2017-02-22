@@ -111,6 +111,10 @@ int PCM_BT = 3;
 #define HW_PARAMS_FLAG_LPCM 0
 #define HW_PARAMS_FLAG_NLPCM 1
 
+#define DEFAULT_MODE 0
+#define HDMI_BITSTREAM_MODE 6
+#define SPDIF_PASSTHROUGH_MODE 8
+
 #define HDMI_AUIOINFO_NODE      "/sys/class/display/HDMI/audioinfo"
 #define HDMI_CONNECTION_NODE    "/sys/class/display/HDMI/connect"
 #define SND_CARD0_NODE          "/proc/asound/card0/id"
