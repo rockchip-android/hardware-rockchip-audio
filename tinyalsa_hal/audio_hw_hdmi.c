@@ -43,7 +43,11 @@ void rk_check_hdmi_uevents(const char *buf,int len)
 	    ALOGD("audio hardware hdmi changed event");
 	    usleep(2 * 1000 * 1000);
 	    property_set("media.audio.reset", "1");
-    }
+	} else if (!strcmp(buf, "change@/devices/virtual/switch/cdn-dp")) {
+		ALOGD("audio hardware dp hotplug event");
+		usleep(2 * 1000 * 1000);
+		property_set("media.audio.reset", "1");
+	}
 }
 
 /**
