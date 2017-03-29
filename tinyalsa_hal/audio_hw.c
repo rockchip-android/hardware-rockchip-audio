@@ -726,8 +726,8 @@ static int start_input_stream(struct stream_in *in)
             in->buf_provider.release_buffer = release_buffer;
 
             ret = create_resampler(8000,
-                                   16000,
-                                   2,
+                                   in->requested_rate,
+                                   audio_channel_count_from_in_mask(in->channel_mask),
                                    RESAMPLER_QUALITY_DEFAULT,
                                    &in->buf_provider,
                                    &in->resampler);
@@ -746,8 +746,8 @@ static int start_input_stream(struct stream_in *in)
             in->buf_provider.release_buffer = release_buffer;
 
             ret = create_resampler(48000,
-                                   16000,
-                                   2,
+                                   in->requested_rate,
+                                   audio_channel_count_from_in_mask(in->channel_mask),
                                    RESAMPLER_QUALITY_DEFAULT,
                                    &in->buf_provider,
                                    &in->resampler);
