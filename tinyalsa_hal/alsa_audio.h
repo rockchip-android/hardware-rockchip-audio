@@ -65,12 +65,13 @@ typedef enum _AudioRoute {
 
     SPDIF_NORMAL_ROUTE, 
 
-    USB_NORMAL_ROUTE, // 29
+    USB_NORMAL_ROUTE, // 30
     USB_CAPTURE_ROUTE,
 
+    HDMI_IN_NORMAL_ROUTE,
+    HDMI_IN_OFF_ROUTE,
 
-
-    MAX_ROUTE, // 32
+    MAX_ROUTE, //34
 } AudioRoute;
 
 #define PCM_ERROR_MAX 128

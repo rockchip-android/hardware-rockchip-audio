@@ -129,6 +129,8 @@ int is_playback_route(unsigned route)
     case BLUETOOTH_SOC_MIC_CAPTURE_ROUTE:
     case CAPTURE_OFF_ROUTE:
     case USB_CAPTURE_ROUTE:
+    case HDMI_IN_NORMAL_ROUTE:
+    case HDMI_IN_OFF_ROUTE:
         return 0;
     case SPEAKER_NORMAL_ROUTE:
     case SPEAKER_INCALL_ROUTE:
@@ -317,6 +319,10 @@ const struct config_route *get_route_config(unsigned route)
         return &(route_table->usb_capture);
     case SPDIF_NORMAL_ROUTE:
         return &(route_table->spdif_normal);
+    case HDMI_IN_NORMAL_ROUTE:
+        return &(route_table->hdmiin_normal);
+    case HDMI_IN_OFF_ROUTE:
+        return &(route_table->hdmiin_off);
     default:
         ALOGE("get_route_config() Error route %d", route);
         return NULL;
@@ -410,7 +416,9 @@ int route_set_controls(unsigned route)
     }
 #else //primary input maybe used for usb
     if (route > SPDIF_NORMAL_ROUTE &&
-        route != USB_CAPTURE_ROUTE) {
+        route != USB_CAPTURE_ROUTE &&
+        route != HDMI_IN_NORMAL_ROUTE &&
+        route != HDMI_IN_OFF_ROUTE) {
         ALOGV("route %d error for codec or hdmi!", route);
         return -EINVAL;
     }
@@ -466,7 +474,10 @@ void route_pcm_open(uint32_t route)
     if (route > BLUETOOTH_SOC_MIC_CAPTURE_ROUTE &&
         route != HDMI_NORMAL_ROUTE &&
         route != SPDIF_NORMAL_ROUTE &&
-        route != USB_CAPTURE_ROUTE) {
+        route != USB_CAPTURE_ROUTE &&
+        route != HDMI_IN_NORMAL_ROUTE &&
+        route != HDMI_IN_OFF_ROUTE &&
+        route != PLAYBACK_OFF_ROUTE) {
         ALOGV("route %d error for codec or hdmi!", route);
         goto __exit;
     }

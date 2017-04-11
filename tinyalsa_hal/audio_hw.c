@@ -614,6 +614,10 @@ static int start_output_stream(struct stream_out *out)
         }
 #endif
     }
+    if(adev->hdmiin_state){
+           ALOGD("%s HDMIin state open hdmiin route",__FUNCTION__);
+           route_pcm_open(HDMI_IN_NORMAL_ROUTE);
+    }
     return 0;
 }
 
@@ -1123,7 +1127,10 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
     char value[32];
     int ret;
     unsigned int val;
+    if(adev->hdmiin_state)
+	    return 0;
 
+    ALOGD("%s: kvpairs = %s", __func__, kvpairs);
     parms = str_parms_create_str(kvpairs);
 
     ret = str_parms_get_str(parms, AUDIO_PARAMETER_STREAM_ROUTING,
@@ -1749,6 +1756,8 @@ static int in_set_parameters(struct audio_stream *stream, const char *kvpairs)
     int ret;
     unsigned int val;
     bool apply_now = false;
+    if(adev->hdmiin_state)
+	    return 0;
 
     parms = str_parms_create_str(kvpairs);
 
@@ -2250,6 +2259,9 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
     char value[32] = "";
     int ret = 0;
     int val = 0;
+    enum output_type type;
+    struct stream_out *out;
+    static char buf[1024] = {0};
 
     ALOGD("%s: kvpairs = %s", __func__, kvpairs);
     parms = str_parms_create_str(kvpairs);
@@ -2269,6 +2281,38 @@ static int adev_set_parameters(struct audio_hw_device *dev, const char *kvpairs)
 	   route_pcm_open(INCALL_OFF_ROUTE);
          } else {
            ALOGE("Unknown HFP client state %s!!!", value);
+           ret = -EINVAL;
+         }
+      }
+      /* HDMIin enable/disable */
+      val = str_parms_get_str(parms, "HDMIin_enable", value, sizeof(value));
+      if (0 <= val) {
+         if (strcmp(value, "true") == 0) {
+		 adev->pcm_hdmiin_out = pcm_open(PCM_CARD, PCM_DEVICE_HDMIIN,
+				 PCM_OUT | PCM_MONOTONIC, &pcm_config);
+		 if (adev->pcm_hdmiin_out && !pcm_is_ready(adev->pcm_hdmiin_out)) {
+			 ALOGE("adev->pcm_hdmiin_out failed: %s",
+					 pcm_get_error(adev->pcm_hdmiin_out));
+			 pcm_close(adev->pcm_hdmiin_out);
+			 ret = -ENOMEM;
+		 }
+		 adev->hdmiin_state = true;
+		 route_pcm_open(HDMI_IN_NORMAL_ROUTE);
+		 pcm_write(adev->pcm_hdmiin_out, buf, 10);
+		 ALOGD("Enable HDMIin");
+	 } else if (strcmp(value, "false") == 0) {
+		 route_pcm_open(HDMI_IN_OFF_ROUTE);
+		 if (adev->pcm_hdmiin_in) {
+			 pcm_close(adev->pcm_hdmiin_in);
+		 }
+
+		 if (adev->pcm_hdmiin_out) {
+			 pcm_close(adev->pcm_hdmiin_out);
+		 }
+		 adev->hdmiin_state = false;
+		 ALOGD("Disable HDMIin");
+	 } else {
+           ALOGE("Unknown HDMIin state %s!!!", value);
            ret = -EINVAL;
          }
       }

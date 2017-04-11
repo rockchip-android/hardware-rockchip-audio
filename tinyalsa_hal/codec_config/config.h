@@ -70,6 +70,9 @@ struct config_route_table
     const struct config_route usb_capture;
 
     const struct config_route spdif_normal;
+
+    const struct config_route hdmiin_normal;
+    const struct config_route hdmiin_off;
 };
 
 #define on 1

@@ -65,6 +65,10 @@ const struct config_control rt5651_speaker_normal_controls[] = {
             .int_val = {on},
         },
     */
+     {
+        .ctl_name = "RT5651 ASRC Switch",
+        .str_val = "Disable",
+    },
     {
         .ctl_name = "DAC MIXL INF1 Switch",
         .int_val = {on},
@@ -123,6 +127,10 @@ const struct config_control rt5651_speaker_incall_controls[] = {
 
 const struct config_control rt5651_speaker_ringtone_controls[] = {
     {
+        .ctl_name = "RT5651 ASRC Switch",
+        .str_val = "Disable",
+    },
+    {
         .ctl_name = "DAC MIXL INF1 Switch",
         .int_val = {on},
     },
@@ -175,6 +183,10 @@ const struct config_control rt5651_speaker_ringtone_controls[] = {
 
 const struct config_control rt5651_speaker_voip_controls[] = {
     {
+        .ctl_name = "RT5651 ASRC Switch",
+        .str_val = "Disable",
+    },
+    {
         .ctl_name = "DAC MIXL INF1 Switch",
         .int_val = {on},
     },
@@ -225,6 +237,74 @@ const struct config_control rt5651_speaker_voip_controls[] = {
 };
 
 const struct config_control rt5651_earpiece_normal_controls[] = {
+    {
+        .ctl_name = "RT5651 ASRC Switch",
+        .str_val = "Disable",
+    },
+    {
+        .ctl_name = "DAC MIXL INF1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "DAC MIXR INF1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "Stereo DAC MIXL DAC L1 Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "Stereo DAC MIXR DAC R1 Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "Stereo DAC MIXL DAC L2 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "Stereo DAC MIXR DAC R2 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "OUT MIXL DAC L1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "OUT MIXR DAC R1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPOVOL L Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPOVOL R Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPO MIX HPVOL Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPO MIX HPVOL Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPO L Playback Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPO R Playback Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HP Playback Volume",
+        .int_val = {31, 31},
+    },
+    {
+        .ctl_name = "DAC1 Playback Volume",
+        .int_val = {175, 175},
+    },
 
 };
 
@@ -241,6 +321,10 @@ const struct config_control rt5651_earpiece_voip_controls[] = {
 };
 
 const struct config_control rt5651_headphone_normal_controls[] = {
+    {
+        .ctl_name = "RT5651 ASRC Switch",
+        .str_val = "Disable",
+    },
     {
         .ctl_name = "DAC MIXL INF1 Switch",
         .int_val = {on},
@@ -304,6 +388,10 @@ const struct config_control rt5651_headphone_incall_controls[] = {
 };
 
 const struct config_control rt5651_headphone_ringtone_controls[] = {
+    {
+        .ctl_name = "RT5651 ASRC Switch",
+        .str_val = "Disable",
+    },
     {
         .ctl_name = "DAC MIXL INF1 Switch",
         .int_val = {on},
@@ -372,6 +460,10 @@ const struct config_control rt5651_speaker_headphone_ringtone_controls[] = {
 
 const struct config_control rt5651_headphone_voip_controls[] = {
     {
+        .ctl_name = "RT5651 ASRC Switch",
+        .str_val = "Disable",
+    },
+    {
         .ctl_name = "DAC MIXL INF1 Switch",
         .int_val = {on},
     },
@@ -430,6 +522,10 @@ const struct config_control rt5651_headphone_voip_controls[] = {
 };
 
 const struct config_control rt5651_headset_normal_controls[] = {
+    {
+        .ctl_name = "RT5651 ASRC Switch",
+        .str_val = "Disable",
+    },
     {
         .ctl_name = "DAC MIXL INF1 Switch",
         .int_val = {on},
@@ -494,6 +590,10 @@ const struct config_control rt5651_headset_incall_controls[] = {
 
 const struct config_control rt5651_headset_ringtone_controls[] = {
     {
+        .ctl_name = "RT5651 ASRC Switch",
+        .str_val = "Disable",
+    },
+    {
         .ctl_name = "DAC MIXL INF1 Switch",
         .int_val = {on},
     },
@@ -552,6 +652,10 @@ const struct config_control rt5651_headset_ringtone_controls[] = {
 };
 
 const struct config_control rt5651_headset_voip_controls[] = {
+    {
+        .ctl_name = "RT5651 ASRC Switch",
+        .str_val = "Disable",
+    },
     {
         .ctl_name = "DAC MIXL INF1 Switch",
         .int_val = {on},
@@ -738,6 +842,85 @@ const struct config_control rt5651_voip_off_controls[] = {
 
 };
 
+const struct config_control rt5651_hdmiin_normal_controls[] = {
+    {
+        .ctl_name = "RT5651 ASRC Switch",
+        .str_val = "Enable",
+    },
+    {
+        .ctl_name = "DAC MIXL INF1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "DAC MIXR INF1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "Stereo DAC MIXL DAC L1 Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "Stereo DAC MIXR DAC R1 Switch",
+        .int_val = {off},
+    },
+    {
+        .ctl_name = "Stereo DAC MIXL DAC L2 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "Stereo DAC MIXR DAC R2 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "OUT MIXL DAC L1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "OUT MIXR DAC R1 Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPOVOL L Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPOVOL R Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPO MIX HPVOL Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPO MIX HPVOL Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPO L Playback Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HPO R Playback Switch",
+        .int_val = {on},
+    },
+    {
+        .ctl_name = "HP Playback Volume",
+        .int_val = {31, 31},
+    },
+    {
+        .ctl_name = "DAC1 Playback Volume",
+        .int_val = {175, 175},
+    },
+
+};
+
+const struct config_control rt5651_hdmiin_off_controls[] = {
+    {
+        .ctl_name = "RT5651 ASRC Switch",
+        .str_val = "Disable",
+    },
+
+};
 const struct config_route_table rt5651_config_table = {
     //speaker
     .speaker_normal = {
@@ -912,7 +1095,15 @@ const struct config_route_table rt5651_config_table = {
         .controls = rt5651_voip_off_controls,
         .controls_count = sizeof(rt5651_voip_off_controls) / sizeof(struct config_control),
     },
+    .hdmiin_normal = {
+        .controls = rt5651_hdmiin_normal_controls,
+        .controls_count = sizeof(rt5651_hdmiin_normal_controls) / sizeof(struct config_control),
+    },
 
+    .hdmiin_off = {
+        .controls = rt5651_hdmiin_off_controls,
+        .controls_count = sizeof(rt5651_hdmiin_off_controls) / sizeof(struct config_control),
+    },
     //hdmi
     .hdmi_normal = {
         .sound_card = 1,

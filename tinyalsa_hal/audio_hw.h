@@ -89,6 +89,7 @@ int PCM_BT = 3;
 #define PCM_DEVICE 0
 #define PCM_DEVICE_SCO 1
 #define PCM_DEVICE_VOICE 2
+#define PCM_DEVICE_HDMIIN 2
 #define PCM_DEVICE_DEEP 3
 /* for bt client call */
 #define PCM_DEVICE_HFP 1
@@ -305,6 +306,7 @@ struct audio_device {
     audio_devices_t out_device; /* "or" of stream_out.device for all active output streams */
     audio_devices_t in_device;
     bool mic_mute;
+    bool hdmiin_state;
     struct audio_route *ar;
     audio_source_t input_source;
     int cur_route_id;     /* current route ID: combination of input source
@@ -315,6 +317,8 @@ struct audio_device {
     struct pcm *pcm_voice_in;
     struct pcm *pcm_sco_in;
     struct pcm *pcm_hfp_in;
+    struct pcm *pcm_hdmiin_in;
+    struct pcm *pcm_hdmiin_out;
     int hdmi_drv_fd;    /* either an fd >= 0 or -1 */
     audio_channel_mask_t in_channel_mask;
     unsigned int sco_on_count;
