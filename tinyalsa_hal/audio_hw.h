@@ -112,11 +112,17 @@ int PCM_BT = 3;
 #define HW_PARAMS_FLAG_LPCM 0
 #define HW_PARAMS_FLAG_NLPCM 1
 
+
 #define DEFAULT_MODE 0
 #define HDMI_BITSTREAM_MODE 6
 #define SPDIF_PASSTHROUGH_MODE 8
 
+#ifdef RK3399
+#define HDMI_AUIOINFO_NODE      "/sys/class/drm/card0-HDMI-A-1/audioformat"
+#else
 #define HDMI_AUIOINFO_NODE      "/sys/class/display/HDMI/audioinfo"
+#endif
+
 #define HDMI_CONNECTION_NODE    "/sys/class/display/HDMI/connect"
 #define SND_CARD0_NODE          "/proc/asound/card0/id"
 #define SND_CARD1_NODE          "/proc/asound/card1/id"
@@ -280,7 +286,7 @@ struct pcm_config pcm_config_hdmi_multi = {
 struct pcm_config pcm_config_direct = {
     .channels = 2,
     .rate = 48000,
-    .period_size = 1024*8,
+    .period_size = 1024*4,
     .period_count = 3,
     .format = PCM_FORMAT_S16_LE,
     .flag = HW_PARAMS_FLAG_NLPCM,
@@ -353,6 +359,9 @@ struct stream_out {
     uint64_t nframes;
     bool output_direct;
 
+    int output_direct_mode;
+
+
     struct audio_device *dev;
     struct resampler_itfe *resampler;
 };
@@ -422,6 +431,12 @@ enum {
     IN_SOURCE_TAB_SIZE,            /* number of lines in route_configs[][] */
     IN_SOURCE_NONE,
     IN_SOURCE_CNT
+};
+
+enum {
+    LPCM = 0,
+    NLPCM,
+    HBR,
 };
 
 struct route_config {
@@ -523,7 +538,7 @@ const struct route_config bluetooth_sco = {
 };
 
 const struct route_config * const route_configs[IN_SOURCE_TAB_SIZE]
-                                               [OUT_DEVICE_TAB_SIZE] = {
+        [OUT_DEVICE_TAB_SIZE] = {
     {   /* IN_SOURCE_MIC */
         &media_speaker,             /* OUT_DEVICE_SPEAKER */
         &media_headset,             /* OUT_DEVICE_HEADSET */
@@ -593,7 +608,7 @@ void initchnsta(void)
     /* b, p, c, u, v, 0, 0, 0*/
     int i = 0;
     for (i=0; i<CHASTA_SUB_NUM; i++)
-       channel_status[i] = (channel_status[i]<<C_BIT_SHIFT) | (0x1<<V_BIT_SHIFT);
+        channel_status[i] = (channel_status[i]<<C_BIT_SHIFT) | (0x1<<V_BIT_SHIFT);
 
     /* B bit */
     channel_status[CHASTA_BIT0*2] |= (0X1<<B_BIT_SHIFT);
@@ -602,68 +617,68 @@ void initchnsta(void)
 
 void set176400chnsta()
 {
-	/* sampling frequency default 176.4K */
-	channel_status[CHASTA_BIT24*2] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT24*2+1] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT25*2] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT25*2+1] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT26*2] |= C_BIT_SET;
-	channel_status[CHASTA_BIT26*2+1] |= C_BIT_SET;
-	channel_status[CHASTA_BIT27*2] |= C_BIT_SET;
-	channel_status[CHASTA_BIT27*2+1] |= C_BIT_SET;
-	/* original sampling frequency */
-	channel_status[CHASTA_BIT36*2] |= C_BIT_SET;
-	channel_status[CHASTA_BIT36*2+1] |= C_BIT_SET;
-	channel_status[CHASTA_BIT37*2] |= C_BIT_SET;
-	channel_status[CHASTA_BIT37*2+1] |= C_BIT_SET;
-	channel_status[CHASTA_BIT38*2] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT38*2+1] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT39*2] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT39*2+1] &= C_BIT_UNSET;
+    /* sampling frequency default 176.4K */
+    channel_status[CHASTA_BIT24*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT24*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT25*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT25*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT26*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT26*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT27*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT27*2+1] |= C_BIT_SET;
+    /* original sampling frequency */
+    channel_status[CHASTA_BIT36*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT36*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT37*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT37*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT38*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT38*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT39*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT39*2+1] &= C_BIT_UNSET;
 
 }
 void set32000chnsta()
 {
-	/* sampling frequency default 32K */
-	channel_status[CHASTA_BIT24*2] |= C_BIT_SET;
-	channel_status[CHASTA_BIT24*2+1] |= C_BIT_SET;
-	channel_status[CHASTA_BIT25*2] |= C_BIT_SET;
-	channel_status[CHASTA_BIT25*2+1] |= C_BIT_SET;
-	channel_status[CHASTA_BIT26*2] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT26*2+1] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT27*2] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT27*2+1] &= C_BIT_UNSET;
-	/* original sampling frequency */
-	channel_status[CHASTA_BIT36*2] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT36*2+1] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT37*2] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT37*2+1] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT38*2] |= C_BIT_SET;
-	channel_status[CHASTA_BIT38*2+1] |= C_BIT_SET;
-	channel_status[CHASTA_BIT39*2] |= C_BIT_SET;
-	channel_status[CHASTA_BIT39*2+1] |= C_BIT_SET;
+    /* sampling frequency default 32K */
+    channel_status[CHASTA_BIT24*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT24*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT25*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT25*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT26*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT26*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT27*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT27*2+1] &= C_BIT_UNSET;
+    /* original sampling frequency */
+    channel_status[CHASTA_BIT36*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT36*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT37*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT37*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT38*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT38*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT39*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT39*2+1] |= C_BIT_SET;
 
 }
 void set44100chnsta()
 {
-	/* sampling frequency default 44.1K */
-	channel_status[CHASTA_BIT24*2] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT24*2+1] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT25*2] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT25*2+1] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT26*2] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT26*2+1] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT27*2] &= C_BIT_UNSET;
-	channel_status[CHASTA_BIT27*2+1] &= C_BIT_UNSET;
-	/* original sampling frequency */
-	channel_status[CHASTA_BIT36*2] |= C_BIT_SET;
-	channel_status[CHASTA_BIT36*2+1] |= C_BIT_SET;
-	channel_status[CHASTA_BIT37*2] |= C_BIT_SET;
-	channel_status[CHASTA_BIT37*2+1] |= C_BIT_SET;
-	channel_status[CHASTA_BIT38*2] |= C_BIT_SET;
-	channel_status[CHASTA_BIT38*2+1] |= C_BIT_SET;
-	channel_status[CHASTA_BIT39*2] |= C_BIT_SET;
-	channel_status[CHASTA_BIT39*2+1] |= C_BIT_SET;
+    /* sampling frequency default 44.1K */
+    channel_status[CHASTA_BIT24*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT24*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT25*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT25*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT26*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT26*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT27*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT27*2+1] &= C_BIT_UNSET;
+    /* original sampling frequency */
+    channel_status[CHASTA_BIT36*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT36*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT37*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT37*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT38*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT38*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT39*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT39*2+1] |= C_BIT_SET;
 
 }
 
@@ -674,24 +689,24 @@ void set44100chnsta()
  */
 void setnlpcmchnsta(void)
 {
-       /* sampling frequency default 48k */
-       channel_status[CHASTA_BIT24*2] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT24*2+1] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT25*2] |= C_BIT_SET;
-       channel_status[CHASTA_BIT25*2+1] |= C_BIT_SET;
-       channel_status[CHASTA_BIT26*2] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT26*2+1] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT27*2] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT27*2+1] &= C_BIT_UNSET;
-       /* original sampling frequency */
-       channel_status[CHASTA_BIT36*2] |= C_BIT_SET;
-       channel_status[CHASTA_BIT36*2+1] |= C_BIT_SET;
-       channel_status[CHASTA_BIT37*2] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT37*2+1] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT38*2] |= C_BIT_SET;
-       channel_status[CHASTA_BIT38*2+1] |= C_BIT_SET;
-       channel_status[CHASTA_BIT39*2] |= C_BIT_SET;
-       channel_status[CHASTA_BIT39*2+1] |= C_BIT_SET;
+    /* sampling frequency default 48k */
+    channel_status[CHASTA_BIT24*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT24*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT25*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT25*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT26*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT26*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT27*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT27*2+1] &= C_BIT_UNSET;
+    /* original sampling frequency */
+    channel_status[CHASTA_BIT36*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT36*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT37*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT37*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT38*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT38*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT39*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT39*2+1] |= C_BIT_SET;
 }
 
 /**
@@ -699,24 +714,24 @@ void setnlpcmchnsta(void)
  */
 void setddpchnsta(void)
 {
-       /* sampling frequency default 192k */
-       channel_status[CHASTA_BIT24*2] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT24*2+1] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT25*2] |= C_BIT_SET;
-       channel_status[CHASTA_BIT25*2+1] |= C_BIT_SET;
-       channel_status[CHASTA_BIT26*2] |= C_BIT_SET;
-       channel_status[CHASTA_BIT26*2+1] |= C_BIT_SET;
-       channel_status[CHASTA_BIT27*2] |= C_BIT_SET;
-       channel_status[CHASTA_BIT27*2+1] |= C_BIT_SET;
-       /* original sampling frequency */
-       channel_status[CHASTA_BIT36*2] |= C_BIT_SET;
-       channel_status[CHASTA_BIT36*2+1] |= C_BIT_SET;
-       channel_status[CHASTA_BIT37*2] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT37*2+1] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT38*2] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT38*2+1] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT39*2] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT39*2+1] &= C_BIT_UNSET;
+    /* sampling frequency default 192k */
+    channel_status[CHASTA_BIT24*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT24*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT25*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT25*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT26*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT26*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT27*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT27*2+1] |= C_BIT_SET;
+    /* original sampling frequency */
+    channel_status[CHASTA_BIT36*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT36*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT37*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT37*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT38*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT38*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT39*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT39*2+1] &= C_BIT_UNSET;
 }
 
 /**
@@ -724,27 +739,28 @@ void setddpchnsta(void)
  */
 void sethbrchnsta(void)
 {
-       /* sampling frequency 768k */
-       channel_status[CHASTA_BIT24*2] |= C_BIT_SET;
-       channel_status[CHASTA_BIT24*2+1] |= C_BIT_SET;
-       channel_status[CHASTA_BIT25*2] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT25*2+1] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT26*2] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT26*2+1] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT27*2] |= C_BIT_SET;
-       channel_status[CHASTA_BIT27*2+1] |= C_BIT_SET;
-       /* original sampling frequency */
-       channel_status[CHASTA_BIT36*2] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT36*2+1] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT37*2] |= C_BIT_SET;
-       channel_status[CHASTA_BIT37*2+1] |= C_BIT_SET;
-       channel_status[CHASTA_BIT38*2] |= C_BIT_SET;
-       channel_status[CHASTA_BIT38*2+1] |= C_BIT_SET;
-       channel_status[CHASTA_BIT39*2] &= C_BIT_UNSET;
-       channel_status[CHASTA_BIT39*2+1] &= C_BIT_UNSET;
+    /* sampling frequency 768k */
+    channel_status[CHASTA_BIT24*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT24*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT25*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT25*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT26*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT26*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT27*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT27*2+1] |= C_BIT_SET;
+    /* original sampling frequency */
+    channel_status[CHASTA_BIT36*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT36*2+1] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT37*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT37*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT38*2] |= C_BIT_SET;
+    channel_status[CHASTA_BIT38*2+1] |= C_BIT_SET;
+    channel_status[CHASTA_BIT39*2] &= C_BIT_UNSET;
+    channel_status[CHASTA_BIT39*2+1] &= C_BIT_UNSET;
 }
 
-void setChanSta(int samplerate, int channel) {
+void setChanSta(int samplerate, int channel)
+{
     if (channel == 8) {
         sethbrchnsta();
     } else {
@@ -769,9 +785,10 @@ void setChanSta(int samplerate, int channel) {
     }
 }
 
-bool isCurIEC958SamplerateSupport(int samplerate) {
+bool isCurIEC958SamplerateSupport(int samplerate)
+{
     if ((samplerate == 44100) || (samplerate== 48000) || (samplerate == 32000) ||
-        (samplerate == 176400) || (samplerate == 192000)) {
+            (samplerate == 176400) || (samplerate == 192000)) {
         return true;
     }
     return false;
@@ -785,11 +802,11 @@ void dumpchnsta()
     int i= 0;
     for (i=0; i<CHASTA_SUB_NUM; i+=16) {
         ALOGI("%02d: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x "
-        "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
-        i/16, channel_status[i], channel_status[i+1], channel_status[i+2], channel_status[i+3],
-        channel_status[i+4], channel_status[i+5], channel_status[i+6], channel_status[i+7],
-        channel_status[i+8], channel_status[i+9], channel_status[i+10], channel_status[i+11],
-        channel_status[i+12], channel_status[i+13], channel_status[i+14], channel_status[i+15]);
+              "0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x\n",
+              i/16, channel_status[i], channel_status[i+1], channel_status[i+2], channel_status[i+3],
+              channel_status[i+4], channel_status[i+5], channel_status[i+6], channel_status[i+7],
+              channel_status[i+8], channel_status[i+9], channel_status[i+10], channel_status[i+11],
+              channel_status[i+12], channel_status[i+13], channel_status[i+14], channel_status[i+15]);
     }
 }
 

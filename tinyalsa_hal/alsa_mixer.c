@@ -16,7 +16,7 @@
 
 /**
  * @file alsa_mixer.c
- * @brief 
+ * @brief
  * @author  RkAudio
  * @version 1.0.8
  * @date 2015-08-24
@@ -60,49 +60,65 @@ char *volume_controls_name_table[] = {
 };
 
 /**
- * @brief elem_iface_name 
+ * @brief elem_iface_name
  *
  * @param n
  *
- * @returns 
+ * @returns
  */
 static const char *elem_iface_name(snd_ctl_elem_iface_t n)
 {
     switch (n) {
-    case SNDRV_CTL_ELEM_IFACE_CARD: return "CARD";
-    case SNDRV_CTL_ELEM_IFACE_HWDEP: return "HWDEP";
-    case SNDRV_CTL_ELEM_IFACE_MIXER: return "MIXER";
-    case SNDRV_CTL_ELEM_IFACE_PCM: return "PCM";
-    case SNDRV_CTL_ELEM_IFACE_RAWMIDI: return "MIDI";
-    case SNDRV_CTL_ELEM_IFACE_TIMER: return "TIMER";
-    case SNDRV_CTL_ELEM_IFACE_SEQUENCER: return "SEQ";
-    default: return "???";
+    case SNDRV_CTL_ELEM_IFACE_CARD:
+        return "CARD";
+    case SNDRV_CTL_ELEM_IFACE_HWDEP:
+        return "HWDEP";
+    case SNDRV_CTL_ELEM_IFACE_MIXER:
+        return "MIXER";
+    case SNDRV_CTL_ELEM_IFACE_PCM:
+        return "PCM";
+    case SNDRV_CTL_ELEM_IFACE_RAWMIDI:
+        return "MIDI";
+    case SNDRV_CTL_ELEM_IFACE_TIMER:
+        return "TIMER";
+    case SNDRV_CTL_ELEM_IFACE_SEQUENCER:
+        return "SEQ";
+    default:
+        return "???";
     }
 }
 
 /**
- * @brief elem_type_name 
+ * @brief elem_type_name
  *
  * @param n
  *
- * @returns 
+ * @returns
  */
 static const char *elem_type_name(snd_ctl_elem_type_t n)
 {
     switch (n) {
-    case SNDRV_CTL_ELEM_TYPE_NONE: return "NONE";
-    case SNDRV_CTL_ELEM_TYPE_BOOLEAN: return "BOOL";
-    case SNDRV_CTL_ELEM_TYPE_INTEGER: return "INT32";
-    case SNDRV_CTL_ELEM_TYPE_ENUMERATED: return "ENUM";
-    case SNDRV_CTL_ELEM_TYPE_BYTES: return "BYTES";
-    case SNDRV_CTL_ELEM_TYPE_IEC958: return "IEC958";
-    case SNDRV_CTL_ELEM_TYPE_INTEGER64: return "INT64";
-    default: return "???";
+    case SNDRV_CTL_ELEM_TYPE_NONE:
+        return "NONE";
+    case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
+        return "BOOL";
+    case SNDRV_CTL_ELEM_TYPE_INTEGER:
+        return "INT32";
+    case SNDRV_CTL_ELEM_TYPE_ENUMERATED:
+        return "ENUM";
+    case SNDRV_CTL_ELEM_TYPE_BYTES:
+        return "BYTES";
+    case SNDRV_CTL_ELEM_TYPE_IEC958:
+        return "IEC958";
+    case SNDRV_CTL_ELEM_TYPE_INTEGER64:
+        return "INT64";
+    default:
+        return "???";
     }
 }
 
 /**
- * @brief mixer_close_legacy 
+ * @brief mixer_close_legacy
  *
  * @param mixer
  */
@@ -136,11 +152,11 @@ void mixer_close_legacy(struct mixer *mixer)
 }
 
 /**
- * @brief mixer_open_legacy 
+ * @brief mixer_open_legacy
  *
  * @param card
  *
- * @returns 
+ * @returns
  */
 struct mixer *mixer_open_legacy(unsigned card)
 {
@@ -239,7 +255,7 @@ struct mixer *mixer_open_legacy(unsigned card)
             ALOGE("mixer_open() get tlv for control %s fail", mixer->ctl[n].info->id.name);
             free(tlv);
             mixer->ctl[n].tlv = tlv = NULL;
-			continue;
+            continue;
         }
 
         ALOGV("mixer_open() get tlv for control %s", mixer->ctl[n].info->id.name);
@@ -261,7 +277,7 @@ fail:
 }
 
 /**
- * @brief mixer_ctl_print 
+ * @brief mixer_ctl_print
  *
  * @param ctl
  */
@@ -308,7 +324,7 @@ void mixer_ctl_print(struct mixer_ctl *ctl)
         for (m = 0; m < ei->count; m++) {
             unsigned v = ev.value.enumerated.item[m];
             printf(" (%d %s)", v,
-                  (v < ei->value.enumerated.items) ? ctl->ename[v] : "???");
+                   (v < ei->value.enumerated.items) ? ctl->ename[v] : "???");
         }
 
         printf(" { %s=0", ctl->ename[0]);
@@ -324,7 +340,7 @@ void mixer_ctl_print(struct mixer_ctl *ctl)
 }
 
 /**
- * @brief mixer_dump 
+ * @brief mixer_dump
  *
  * @param mixer
  */
@@ -356,13 +372,13 @@ void mixer_dump(struct mixer *mixer)
 }
 
 /**
- * @brief mixer_get_control 
+ * @brief mixer_get_control
  *
  * @param mixer
  * @param name
  * @param index
  *
- * @returns 
+ * @returns
  */
 struct mixer_ctl *mixer_get_control(struct mixer *mixer,
                                     const char *name, unsigned index)
@@ -371,7 +387,7 @@ struct mixer_ctl *mixer_get_control(struct mixer *mixer,
     for (n = 0; n < mixer->count; n++) {
         if (mixer->info[n].id.index == index) {
             if (!strcmp(name, (char*) mixer->info[n].id.name)) {
-				ALOGV("mixer_get_control() %s access 0x%08x",mixer->info[n].id.name,mixer->info[n].access);
+                ALOGV("mixer_get_control() %s access 0x%08x",mixer->info[n].id.name,mixer->info[n].access);
                 return mixer->ctl + n;
             }
         }
@@ -380,12 +396,12 @@ struct mixer_ctl *mixer_get_control(struct mixer *mixer,
 }
 
 /**
- * @brief mixer_get_nth_control 
+ * @brief mixer_get_nth_control
  *
  * @param mixer
  * @param n
  *
- * @returns 
+ * @returns
  */
 struct mixer_ctl *mixer_get_nth_control(struct mixer *mixer, unsigned n)
 {
@@ -395,12 +411,12 @@ struct mixer_ctl *mixer_get_nth_control(struct mixer *mixer, unsigned n)
 }
 
 /**
- * @brief scale_int 
+ * @brief scale_int
  *
  * @param ei
  * @param _percent
  *
- * @returns 
+ * @returns
  */
 static long scale_int(struct snd_ctl_elem_info *ei, unsigned _percent)
 {
@@ -418,12 +434,12 @@ static long scale_int(struct snd_ctl_elem_info *ei, unsigned _percent)
 }
 
 /**
- * @brief scale_int64 
+ * @brief scale_int64
  *
  * @param ei
  * @param _percent
  *
- * @returns 
+ * @returns
  */
 static long long scale_int64(struct snd_ctl_elem_info *ei, unsigned _percent)
 {
@@ -439,14 +455,47 @@ static long long scale_int64(struct snd_ctl_elem_info *ei, unsigned _percent)
 
     return ei->value.integer.min + (range / percent);
 }
+/**
+ * @brief mixer_ctl_set_val
+ *
+ * @param ctl
+ * @param value
+ *
+ * @returns
+ */
+
+
+int mixer_ctl_set_val(struct mixer_ctl *ctl, int value)
+{
+    struct snd_ctl_elem_value ev;
+
+    memset(&ev, 0, sizeof(ev));
+    ev.id.numid = ctl->info->id.numid;
+
+    switch (ctl->info->type) {
+    case SNDRV_CTL_ELEM_TYPE_BOOLEAN:
+        ev.value.integer.value[0] = !!value;
+        break;
+    case SNDRV_CTL_ELEM_TYPE_INTEGER:
+        ev.value.integer.value[0] = value;
+        break;
+    case SNDRV_CTL_ELEM_TYPE_INTEGER64:
+        ev.value.integer64.value[0] = value;
+        break;
+defalut:
+        errno = EINVAL;
+        return -1;
+    }
+    return ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_WRITE, &ev);
+}
 
 /**
- * @brief mixer_ctl_set 
+ * @brief mixer_ctl_set
  *
  * @param ctl
  * @param percent
  *
- * @returns 
+ * @returns
  */
 int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent)
 {
@@ -481,12 +530,12 @@ int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent)
 }
 
 /**
- * @brief mixer_ctl_select 
+ * @brief mixer_ctl_select
  *
  * @param ctl
  * @param value
  *
- * @returns 
+ * @returns
  */
 int mixer_ctl_select(struct mixer_ctl *ctl, const char *value)
 {
@@ -515,13 +564,13 @@ int mixer_ctl_select(struct mixer_ctl *ctl, const char *value)
 }
 
 /**
- * @brief mixer_ctl_set_int_double 
+ * @brief mixer_ctl_set_int_double
  *
  * @param ctl
  * @param left
  * @param right
  *
- * @returns 
+ * @returns
  */
 int mixer_ctl_set_int_double(struct mixer_ctl *ctl, long long left, long long right)
 {
@@ -584,12 +633,12 @@ int mixer_ctl_set_int_double(struct mixer_ctl *ctl, long long left, long long ri
 }
 
 /**
- * @brief mixer_ctl_set_int 
+ * @brief mixer_ctl_set_int
  *
  * @param ctl
  * @param value
  *
- * @returns 
+ * @returns
  */
 int mixer_ctl_set_int(struct mixer_ctl *ctl, long long value)
 {
@@ -597,13 +646,13 @@ int mixer_ctl_set_int(struct mixer_ctl *ctl, long long value)
 }
 
 /**
- * @brief mixer_get_ctl_minmax 
+ * @brief mixer_get_ctl_minmax
  *
  * @param ctl
  * @param min
  * @param max
  *
- * @returns 
+ * @returns
  */
 int mixer_get_ctl_minmax(struct mixer_ctl *ctl, long long *min, long long *max)
 {
@@ -615,7 +664,7 @@ int mixer_get_ctl_minmax(struct mixer_ctl *ctl, long long *min, long long *max)
         *min = ei->value.integer.min;
         *max = ei->value.integer.max;
         break;
-	case SNDRV_CTL_ELEM_TYPE_INTEGER64:
+    case SNDRV_CTL_ELEM_TYPE_INTEGER64:
         *min = ei->value.integer64.min;
         *max = ei->value.integer64.max;
         break;
@@ -631,7 +680,7 @@ int mixer_get_ctl_minmax(struct mixer_ctl *ctl, long long *min, long long *max)
 }
 
 /**
- * @brief mixer_tlv_get_dB_range 
+ * @brief mixer_tlv_get_dB_range
  * Get dB range from tlv[] which is obtained from control
  *
  * @param tlv
@@ -640,10 +689,10 @@ int mixer_get_ctl_minmax(struct mixer_ctl *ctl, long long *min, long long *max)
  * @param min
  * @param max
  *
- * @returns 
+ * @returns
  */
 int mixer_tlv_get_dB_range(unsigned int *tlv, long rangemin, long rangemax,
-                                    long *min, long *max)
+                           long *min, long *max)
 {
     int err;
 
@@ -659,8 +708,8 @@ int mixer_tlv_get_dB_range(unsigned int *tlv, long rangemin, long rangemax,
             rangemin = (int)tlv[pos];
             rangemax = (int)tlv[pos + 1];
             err = mixer_tlv_get_dB_range(tlv + pos + 2,
-                rangemin, rangemax,
-                &rmin, &rmax);
+                                         rangemin, rangemax,
+                                         &rmin, &rmax);
             if (err < 0)
                 return err;
             if (pos > 2) {
@@ -694,7 +743,7 @@ int mixer_tlv_get_dB_range(unsigned int *tlv, long rangemin, long rangemax,
 }
 
 /**
- * @brief mixer_get_dB_range 
+ * @brief mixer_get_dB_range
  * Get dB range of control
  *
  * @param ctl
@@ -704,10 +753,10 @@ int mixer_tlv_get_dB_range(unsigned int *tlv, long rangemin, long rangemax,
  * @param dB_max
  * @param dB_step
  *
- * @returns 
+ * @returns
  */
 int mixer_get_dB_range(struct mixer_ctl *ctl, long rangemin, long rangemax,
-                                    float *dB_min, float *dB_max, float *dB_step)
+                       float *dB_min, float *dB_max, float *dB_step)
 {
     unsigned int *tlv;
     long min, max;
@@ -718,7 +767,7 @@ int mixer_get_dB_range(struct mixer_ctl *ctl, long rangemin, long rangemax,
     }
 
     if (mixer_tlv_get_dB_range(ctl->tlv->tlv, rangemin, rangemax,
-           &min, &max) < 0) {
+                               &min, &max) < 0) {
         ALOGE("mixer_get_dB_range() get control dB range fail");
         return -EINVAL;
     }
@@ -728,10 +777,10 @@ int mixer_get_dB_range(struct mixer_ctl *ctl, long rangemin, long rangemax,
     *dB_step = (max - min) * 1.0 / (rangemax - rangemin) / 100;
 
     ALOGV("control %s : dB min = %f, dB max = %f, dB step = %f",
-           ctl->info->id.name,
-           *dB_min,
-           *dB_max,
-           *dB_step);
+          ctl->info->id.name,
+          *dB_min,
+          *dB_max,
+          *dB_step);
 
     return 0;
 }

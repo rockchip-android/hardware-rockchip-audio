@@ -16,7 +16,7 @@
 
 /**
  * @file alsa_audio.h
- * @brief 
+ * @brief
  * @author  RkAudio
  * @version 1.0.8
  * @date 2015-08-24
@@ -63,7 +63,7 @@ typedef enum _AudioRoute {
 
     HDMI_NORMAL_ROUTE, // 28
 
-    SPDIF_NORMAL_ROUTE, 
+    SPDIF_NORMAL_ROUTE,
 
     USB_NORMAL_ROUTE, // 30
     USB_CAPTURE_ROUTE,
@@ -107,16 +107,17 @@ struct mixer_ctl *mixer_get_control(struct mixer *mixer,
                                     const char *name, unsigned index);
 struct mixer_ctl *mixer_get_nth_control(struct mixer *mixer, unsigned n);
 
+int mixer_ctl_set_val(struct mixer_ctl *ctl,int value);
 int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent);
 int mixer_ctl_select(struct mixer_ctl *ctl, const char *value);
 void mixer_ctl_print(struct mixer_ctl *ctl);
 int mixer_ctl_set_int_double(struct mixer_ctl *ctl, long long left, long long right);
 int mixer_ctl_set_int(struct mixer_ctl *ctl, long long value);
 int mixer_tlv_get_dB_range(unsigned int *tlv, long rangemin, long rangemax,
-                                    long *min, long *max);
+                           long *min, long *max);
 int mixer_get_ctl_minmax(struct mixer_ctl *ctl, long long *min, long long *max);
 int mixer_get_dB_range(struct mixer_ctl *ctl, long rangemin, long rangemax,
-                                    float *dB_min, float *dB_max, float *dB_step);
+                       float *dB_min, float *dB_max, float *dB_step);
 
 int route_init(void);
 void route_uninit(void);
