@@ -204,7 +204,11 @@ struct pcm_config pcm_config = {
 struct pcm_config pcm_config_in = {
     .channels = 2,
     .rate = 44100,
+#ifdef SPEEX_DENOISE_ENABLE
+    .period_size = 1024,
+#else
     .period_size = 128,
+#endif
     .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
     .flag = HW_PARAMS_FLAG_LPCM,
