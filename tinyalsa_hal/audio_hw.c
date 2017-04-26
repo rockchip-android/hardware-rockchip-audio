@@ -1063,9 +1063,10 @@ static void do_out_standby(struct stream_out *out)
              * necessary when restarted */
             force_non_hdmi_out_standby(adev);
         }
-
+#ifdef RK3399
         out->output_direct_mode = LPCM;
         mixer_mode_set(out);
+#endif
         if (out->device & AUDIO_DEVICE_OUT_ALL_SCO)
             stop_bt_sco(adev);
 
