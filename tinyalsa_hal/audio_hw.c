@@ -299,8 +299,8 @@ unsigned getOutputRouteFromDevice(uint32_t device)
     case AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET:
     case AUDIO_DEVICE_OUT_BLUETOOTH_SCO_CARKIT:
         return BLUETOOTH_NORMAL_ROUTE;
-        //case AudioSystem::DEVICE_OUT_AUX_DIGITAL:
-        //	return HDMI_NORMAL_ROUTE;
+    case AUDIO_DEVICE_OUT_AUX_DIGITAL:
+	return HDMI_NORMAL_ROUTE;
         //case AudioSystem::DEVICE_OUT_EARPIECE:
         //	return EARPIECE_NORMAL_ROUTE;
         //case AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET:
@@ -443,7 +443,7 @@ static int read_snd_card_info(void)
             PCM_CARD_SPDIF = 0;
             PCM_CARD = 1;
         }
-    } else if (strstr(buf0, "HDMI") || strstr(buf0, "rockchiphdmi") || strstr(buf0, "rockchipcdndpfb") || strstr(buf0, "rockchipcdndpso")) {
+    } else if (strstr(buf0, "HDMI") || strstr(buf0, "rockchiphdmi") || strstr(buf0, "rockchipcdndpfb") || strstr(buf0, "rockchipcdndpso") || strstr(buf0, "rkhdmianalogsnd")) {
         PCM_CARD = 0;
         PCM_CARD_HDMI = 0;
         PCM_CARD_SPDIF = 1;
