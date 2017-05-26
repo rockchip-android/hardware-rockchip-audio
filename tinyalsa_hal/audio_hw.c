@@ -597,6 +597,7 @@ static int start_output_stream(struct stream_out *out)
 
     if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
         if (connect_hdmi) {
+#ifdef BOX_HAL
 #ifdef RK3399
             int ret = 0;
             ret = mixer_mode_set(out);
@@ -604,6 +605,7 @@ static int start_output_stream(struct stream_out *out)
             if (ret!=0) {
                 ALOGE("mixer mode set error,ret=%d!",ret);
             }
+#endif
 #endif
             out->pcm[PCM_CARD_HDMI] = pcm_open(PCM_CARD_HDMI, out->pcm_device,
                                                PCM_OUT | PCM_MONOTONIC, &out->config);
@@ -1063,9 +1065,11 @@ static void do_out_standby(struct stream_out *out)
              * necessary when restarted */
             force_non_hdmi_out_standby(adev);
         }
+#ifdef BOX_HAL
 #ifdef RK3399
         out->output_direct_mode = LPCM;
         mixer_mode_set(out);
+#endif
 #endif
         if (out->device & AUDIO_DEVICE_OUT_ALL_SCO)
             stop_bt_sco(adev);
