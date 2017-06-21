@@ -463,7 +463,11 @@ static int read_snd_card_info(void)
         PCM_CARD_SPDIF = 0;
         PCM_CARD_HDMI = 1;
         PCM_CARD =1;
-    }
+    }else if(strstr(buf0,"rockchiprt5640c")){
+        PCM_CARD_HDMI = 0;
+		PCM_CARD = 0;
+	}
+
 #ifdef RK3399_LAPTOP
     if (strstr (buf1, "rockchipbt")) {
         PCM_CARD = 0;
