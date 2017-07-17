@@ -473,7 +473,6 @@ struct pcm *pcm_open(unsigned flags)
     unsigned device;
     unsigned period_sz;
     unsigned period_cnt;
-
     ALOGD("pcm_open(0x%08x)", flags);
 
     pcm = calloc(1, sizeof(struct pcm));

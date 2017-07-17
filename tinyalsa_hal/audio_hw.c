@@ -428,7 +428,11 @@ static int read_snd_card_info(void)
             PCM_CARD = 0;
             PCM_CARD_SPDIF = 1;
             PCM_CARD_HDMI = 2;
-        } else {
+        }else if(strstr (buf0,"RKRK312X") && strstr(buf1,"RKSPDIFCARD")){
+			PCM_CARD = 0;
+			PCM_CARD_HDMI = 0;
+			PCM_CARD_SPDIF= 1;
+	    }else {
             ALOGD("now is 2 snd card mode");
             PCM_CARD = 0;
             PCM_CARD_HDMI = 0;
@@ -586,7 +590,7 @@ static int start_output_stream(struct stream_out *out)
         /*BOX hdmi & codec use the same i2s,so only config the codec card*/
         out->device &= ~AUDIO_DEVICE_OUT_SPEAKER;
     }
-
+    read_snd_card_info();
 #ifdef RK3228
     if (direct_mode.output_mode == HW_PARAMS_FLAG_LPCM) {
         if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
@@ -612,7 +616,7 @@ static int start_output_stream(struct stream_out *out)
 #endif
 #endif
             out->pcm[PCM_CARD_HDMI] = pcm_open(PCM_CARD_HDMI, out->pcm_device,
-                                               PCM_OUT | PCM_MONOTONIC, &out->config);
+                                                PCM_OUT | PCM_MONOTONIC, &out->config);
             if (out->pcm[PCM_CARD_HDMI] &&
                     !pcm_is_ready(out->pcm[PCM_CARD_HDMI])) {
                 ALOGE("pcm_open(PCM_CARD_HDMI) failed: %s",
@@ -1480,7 +1484,6 @@ false_alarm:
     if (prop_pcm > 0) {
         dump_out_data(buffer, bytes, &prop_pcm);
     }
-
 #if 0
     usleep(bytes * 1000000 / audio_stream_out_frame_size(stream) /
            out_get_sample_rate(&stream->common));
@@ -1492,7 +1495,13 @@ false_alarm:
     /* Write to all active PCMs */
     if ((direct_mode.output_mode == HW_PARAMS_FLAG_NLPCM) && (direct_mode.hbr_Buf != NULL)) {
         if (out->pcm[PCM_CARD_HDMI] != NULL) {
-            ret = pcm_write(out->pcm[PCM_CARD_HDMI], (void *)direct_mode.hbr_Buf, newbytes);
+#ifdef BOX_HAL
+#ifdef RK3128
+              ret = pcm_write(out->pcm[PCM_CARD_HDMI], (void *)buffer, bytes);
+#else
+              ret = pcm_write(out->pcm[PCM_CARD_HDMI], (void *)direct_mode.hbr_Buf, newbytes);
+#endif
+#endif
             if (ret != 0) {
                 goto exit;
             }
@@ -2226,6 +2235,11 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     if ((type == OUTPUT_HDMI_MULTI) && (devices & AUDIO_DEVICE_OUT_AUX_DIGITAL) && (device_mode == HDMI_BITSTREAM_MODE)) {
         direct_mode.output_mode = HW_PARAMS_FLAG_NLPCM;
         out->config.format = PCM_FORMAT_S24_LE;
+#ifdef BOX_HAL
+#ifdef RK3128
+		out->config.format = PCM_FORMAT_S16_LE;
+#endif
+#endif
         setChanSta(out->config.rate, out->config.channels);
     } else {
         direct_mode.output_mode = HW_PARAMS_FLAG_LPCM;

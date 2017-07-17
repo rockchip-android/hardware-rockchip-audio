@@ -51,7 +51,9 @@ endif
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3399)
     LOCAL_CFLAGS += -DRK3399
 endif
-
+ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3128)
+    LOCAL_CFLAGS += -DRK3128
+endif
 ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)), laptop)
 LOCAL_CFLAGS += -DRK3399_LAPTOP
 LOCAL_CFLAGS += -DBT_AP_SCO
