@@ -1068,6 +1068,7 @@ static void do_out_standby(struct stream_out *out)
         }
         out->standby = true;
         out->nframes = 0;
+		property_set("media.audio.slice", "0");
         if (out == adev->outputs[OUTPUT_HDMI_MULTI]) {
             /* force standby on low latency output stream so that it can reuse HDMI driver if
              * necessary when restarted */
@@ -1409,6 +1410,97 @@ static void set_bitstream_buf(void * in, void* out, size_t length)
     }
 }
 
+const float volume_slice[]={0.8012, 0.6419, 0.5309, 0.4254,
+                            0.3408, 0.2828, 0.1773, 0.1116,
+                            0.0750, 0.0472, 0.0297, 0.0200,
+                            0.0078, 0.0031, 0.0010, 0.0000};
+
+const float delta_slice[] = {0.8, 0.6, 0.48, 0.3, 0.17, 0.1, 0.05, 0};
+
+float get_len_posi(struct stream_out *out,int len)
+{
+    int len_max = out->out_data_size / 2;
+	int ret = 0;
+	
+	if (len < len_max / 8)
+		ret = 0;
+	else if ((len > len_max/8)&&(len < len_max/4))
+		ret = 1;
+    else if ((len > len_max/4) && (len < (len_max*3) /8))
+		ret = 2;
+	else if ((len > (len_max*3) /8) && (len < len_max/2))
+		ret = 3;
+	else if ((len > len_max/2) && (len < (len_max*5) /8))
+		ret = 4;
+	else if ((len > (len_max*5) /8) && (len < (len_max*3) /4))
+		ret = 5;
+	else if ((len > (len_max*3) /4) && (len < (len_max*7) /8))
+		ret = 6;
+	else
+		ret = 7;
+	
+	return delta_slice[ret];
+
+}
+static int cal_data_slice(struct stream_out *out,void *data,int len,int times,bool down)
+{
+    
+    int16_t *raw =(int16_t *)data;
+	len /=2;
+	if (times > 15)times =15;
+	else if (times < 0)times =0;
+	while (len--){
+		float tmp = (float)(*(raw+len));
+		if (down)
+			tmp *=(volume_slice[times] -
+			          (volume_slice[times]-volume_slice[times+1]*(1-get_len_posi(out,len))));
+		else{
+			if (times >=1)
+				tmp *=(volume_slice[times] +
+				         ((volume_slice[times-1] - volume_slice[times]) * (1-get_len_posi(out,len))));
+			else
+				tmp *=(volume_slice[times] +
+				         ((1 - volume_slice[times]) * (1-get_len_posi(out,len))));
+	    }
+		*(raw + len)=(int16_t) tmp;
+	}
+    return 0;
+}
+
+static void set_data_slice(void *in_data,struct stream_out *out,size_t length)
+{
+    //Resolve the broken sound when cut the table
+	int slice_mode = 0 ;
+	
+	char value[PROPERTY_VALUE_MAX];
+	property_get("media.audio.slice",value,"0");
+	if (atoi(value)>0)
+		slice_mode = atoi(value);
+	if(slice_mode ==1){
+		out->slice_time_up = 0;
+		ALOGD("for audio slice slicetime = %d,slice_mode =%d",out->slice_time_down,slice_mode);
+		cal_data_slice (out,(void *)in_data, length, out->slice_time_down,true);
+		out->slice_time_down++;
+	    if (out->slice_time_down >= 50){
+		   property_set("media.audio.slice","0");
+		   out->slice_time_down = 15;
+		}								 
+	}else if(slice_mode==2){
+		out->slice_time_down =0;
+	    if(out->slice_time_up==0)
+		   out->slice_time_up =15;
+	    ALOGD("for audio slice slicetime = %d,slice_mode =%d",out->slice_time_up,slice_mode);
+		cal_data_slice (out,(void *)in_data, length, out->slice_time_up,false);
+		out->slice_time_up--;
+		if (out->slice_time_up <= 0){
+		   property_set("media.audio.slice","0");
+	    }
+	}else{
+		out->slice_time_up =0;
+		out->slice_time_down =0;
+	}
+}
+
 /**
  * @brief out_write
  *
@@ -1418,6 +1510,7 @@ static void set_bitstream_buf(void * in, void* out, size_t length)
  *
  * @returns
  */
+
 static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
                          size_t bytes)
 {
@@ -1432,6 +1525,7 @@ static ssize_t out_write(struct audio_stream_out *stream, const void* buffer,
      * executing out_set_parameters() while holding the hw device
      * mutex
      */
+    out->out_data_size = bytes;
     char value[PROPERTY_VALUE_MAX];
     property_get("media.audio.debug",value, NULL);
     if (strstr (value, "1") || strstr (value, "true")) {
@@ -1478,7 +1572,11 @@ false_alarm:
 
     if (out->muted)
         memset((void *)buffer, 0, bytes);
-
+	
+	if (direct_mode.output_mode == HW_PARAMS_FLAG_LPCM){
+		set_data_slice((void *)buffer,out,bytes);
+	}
+	
     property_get("media.audio.record", value, NULL);
     prop_pcm = atoi(value);
     if (prop_pcm > 0) {
@@ -2275,6 +2373,10 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
 
     out->standby = true;
     out->nframes = 0;
+	
+	out->slice_time_up = 0;
+	out->slice_time_down = 0;
+	property_set("media.audio.slice", "0");
     /* out->muted = false; by calloc() */
     /* out->written = 0; by calloc() */
 

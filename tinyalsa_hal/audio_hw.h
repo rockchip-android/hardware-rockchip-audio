@@ -365,7 +365,9 @@ struct stream_out {
 
     int output_direct_mode;
 
-
+    int slice_time_up;
+	int slice_time_down;
+	int out_data_size;
     struct audio_device *dev;
     struct resampler_itfe *resampler;
 };
