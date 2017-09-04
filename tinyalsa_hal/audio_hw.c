@@ -524,7 +524,6 @@ static int mixer_mode_set(struct stream_out *out)
     struct mixer_ctl *pctl;
     struct mixer *mMixerPlayback;
 
-    const struct config_route *route_info = get_route_config(getRouteFromDevice(out->device));
     mMixerPlayback = mixer_open_legacy(PCM_CARD_HDMI);
     mMixer = mMixerPlayback;
     pctl = mixer_get_control(mMixer,"AUDIO MODE",0 );
