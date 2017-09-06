@@ -69,6 +69,6 @@ include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES:= amix.c alsa_mixer.c
 LOCAL_MODULE:= amix
-LOCAL_SHARED_LIBRARIES := libc libcutils
+LOCAL_SHARED_LIBRARIES := liblog libc libcutils
 LOCAL_MODULE_TAGS:= debug
 include $(BUILD_EXECUTABLE)
