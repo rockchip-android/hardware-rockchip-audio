@@ -70,7 +70,5 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES:= amix.c alsa_mixer.c
 LOCAL_MODULE:= amix
 LOCAL_SHARED_LIBRARIES := libc libcutils
-LOCAL_LDLIBS := -llog \
-                -landroid
 LOCAL_MODULE_TAGS:= debug
 include $(BUILD_EXECUTABLE)
