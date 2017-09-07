@@ -17,6 +17,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := audio.primary.$(TARGET_BOARD_HARDWARE)
+LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 LOCAL_SRC_FILES := \
 	audio_hw.c \
@@ -69,6 +70,7 @@ include $(BUILD_SHARED_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_SRC_FILES:= amix.c alsa_mixer.c
 LOCAL_MODULE:= amix
+LOCAL_PROPRIETARY_MODULE := true
 LOCAL_SHARED_LIBRARIES := liblog libc libcutils
 LOCAL_MODULE_TAGS:= debug
 include $(BUILD_EXECUTABLE)
