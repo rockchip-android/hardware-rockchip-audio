@@ -2552,7 +2552,20 @@ static int adev_init_check(const struct audio_hw_device *dev)
  */
 static int adev_set_voice_volume(struct audio_hw_device *dev, float volume)
 {
-    return -ENOSYS;
+    int ret = 0;
+    struct audio_device *adev = (struct audio_device *)dev;
+    if(adev->mode == AUDIO_MODE_IN_CALL) {
+        if (volume < 0.0) {
+            volume = 0.0;
+        } else if (volume > 1.0) {
+            volume = 1.0;
+        }
+
+        const char *mixer_ctl_name = "Speaker Playback Volume";
+        ret = route_set_voice_volume(mixer_ctl_name,volume);
+    }
+
+    return ret;
 }
 
 /**
