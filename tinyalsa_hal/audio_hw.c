@@ -1194,11 +1194,13 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
     struct str_parms *parms;
     char value[32];
     int ret;
+    int status = 0;
     unsigned int val;
     if(adev->hdmiin_state)
 	    return 0;
 
     ALOGD("%s: kvpairs = %s", __func__, kvpairs);
+
     parms = str_parms_create_str(kvpairs);
 
     ret = str_parms_get_str(parms, AUDIO_PARAMETER_STREAM_ROUTING,
@@ -1236,7 +1238,10 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
     unlock_all_outputs(adev, NULL);
 
     str_parms_destroy(parms);
-    return ret;
+
+    ALOGV("%s: exit: status(%d)", __func__, status);
+    return status;
+
 }
 
 /**
@@ -1249,6 +1254,8 @@ static int out_set_parameters(struct audio_stream *stream, const char *kvpairs)
  */
 static char * out_get_parameters(const struct audio_stream *stream, const char *keys)
 {
+    ALOGV("%s: keys = %s", __func__, keys);
+
     struct stream_out *out = (struct stream_out *)stream;
     struct str_parms *query = str_parms_create_str(keys);
     char *str;
@@ -1279,7 +1286,8 @@ static char * out_get_parameters(const struct audio_stream *stream, const char *
         str_parms_add_str(reply, AUDIO_PARAMETER_STREAM_SUP_CHANNELS, value);
         str = str_parms_to_str(reply);
     } else {
-        str = strdup(keys);
+        ALOGV("str_parms_get_str failed !");
+        str = strdup("");
     }
 
     str_parms_destroy(query);
@@ -1704,7 +1712,8 @@ static int out_remove_audio_effect(const struct audio_stream *stream, effect_han
 static int out_get_next_write_timestamp(const struct audio_stream_out *stream,
                                         int64_t *timestamp)
 {
-    return -EINVAL;
+    ALOGV("%s: %d Entered", __FUNCTION__, __LINE__);
+    return -ENOSYS;
 }
 
 /**
@@ -1924,8 +1933,12 @@ static int in_set_parameters(struct audio_stream *stream, const char *kvpairs)
     struct str_parms *parms;
     char value[32];
     int ret;
+    int status = 0;
     unsigned int val;
     bool apply_now = false;
+
+    ALOGV("%s: kvpairs = %s", __func__, kvpairs);
+
     if(adev->hdmiin_state)
 	    return 0;
 
@@ -1971,7 +1984,10 @@ static int in_set_parameters(struct audio_stream *stream, const char *kvpairs)
     pthread_mutex_unlock(&in->lock);
 
     str_parms_destroy(parms);
-    return ret;
+
+    ALOGV("%s: exit: status(%d)", __func__, status);
+    return status;
+
 }
 
 /**
