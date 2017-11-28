@@ -213,7 +213,7 @@ struct pcm_config pcm_config_in = {
 #ifdef SPEEX_DENOISE_ENABLE
     .period_size = 1024,
 #else
-    .period_size = 128,
+    .period_size = 256,
 #endif
     .period_count = 4,
     .format = PCM_FORMAT_S16_LE,
