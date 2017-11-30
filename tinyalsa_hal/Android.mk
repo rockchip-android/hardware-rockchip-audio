@@ -31,7 +31,7 @@ LOCAL_C_INCLUDES += \
 	$(call include-path-for, speex)
 
 LOCAL_CFLAGS := -Wno-unused-parameter
-ifeq ($(strip $(TARGET_BOARD_PLATFORM_PRODUCT)), box)
+ifneq ($(filter box atv, $(strip $(TARGET_BOARD_PLATFORM_PRODUCT))), )
 LOCAL_CFLAGS += -DBOX_HAL
 endif
 ifeq ($(strip $(TARGET_BOARD_PLATFORM)),rk3368)
