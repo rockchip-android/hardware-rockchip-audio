@@ -2883,10 +2883,7 @@ static int adev_close(hw_device_t *device)
 
     if (adev->hdmi_drv_fd >= 0)
         close(adev->hdmi_drv_fd);
-
-    if (hdmi_uevent_t != NULL) {
-        pthread_join(hdmi_uevent_t, NULL);
-    }
+    
     free(device);
     return 0;
 }
@@ -2956,10 +2953,7 @@ static int adev_open(const hw_module_t* module, const char* name,
 
     read_snd_card_info();
 #ifdef BOX_HAL
-    initchnsta();
-    if (!pthread_create(&hdmi_uevent_t, NULL, audio_hdmi_thread, NULL)) {
-        ALOGD("pthread_create error");
-    }
+    initchnsta();    
 #endif
     return 0;
 }
