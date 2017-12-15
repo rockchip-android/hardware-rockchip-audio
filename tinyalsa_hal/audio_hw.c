@@ -508,6 +508,28 @@ static int read_hdmi_connect_state(void)
     return 0;
 }
 
+#define PROCCARDS                    "proc/asound/cards"
+#define VALUESIZE  80
+
+static inline bool hasSpdif()
+{
+    char line[VALUESIZE];
+    bool ret = false;
+    FILE *fd = fopen(PROCCARDS,"r");
+    if(NULL != fd){
+       memset(line, 0, VALUESIZE);
+       while((fgets(line,VALUESIZE,fd))!= NULL){
+           line[VALUESIZE-1]='\0';
+           if(strstr(line,"SPDIF")||(strstr(line,"spdif"))){
+              ret = true;
+              break;
+           }
+        }
+        fclose(fd);
+    }
+    return ret;
+}
+
 #endif
 
 /**
@@ -590,6 +612,11 @@ static int start_output_stream(struct stream_out *out)
         out->device &= ~AUDIO_DEVICE_OUT_SPEAKER;
     }
     read_snd_card_info();
+    if (direct_mode.output_mode == HW_PARAMS_FLAG_LPCM){
+        if(hasSpdif() && ((out->device & AUDIO_DEVICE_OUT_SPDIF)==0)){
+           out->device |= AUDIO_DEVICE_OUT_SPDIF;
+       }
+    }
 #ifdef RK3228
     if (direct_mode.output_mode == HW_PARAMS_FLAG_LPCM) {
         if (out->device & AUDIO_DEVICE_OUT_AUX_DIGITAL) {
